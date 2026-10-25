@@ -1,4 +1,4 @@
-# VerifiBrand (formerly BrandLedger)
+# VerifiBrand
 
 > **Verifiable Brand Compliance & Cryptographic Content Passporting**  
 > 🌐 **Live Website**: [https://verifibrand-9h26.vercel.app/](https://verifibrand-9h26.vercel.app/)  
@@ -93,7 +93,7 @@ Once compliant content is formally approved by a human reviewer, VerifiBrand iss
 
 ## 3. Technology Stack
 
-| Layer | Technologies | Role in BrandLedger |
+| Layer | Technologies | Role in VerifiBrand |
 |---|---|---|
 | **Frontend** | Next.js 16.4 (App Router), React 19, TypeScript 5, Vanilla CSS Modules | Policy Library UI, Brand Passport governance viewer, scan workspace boundary |
 | **Backend API** | Python 3.11+, FastAPI 0.110+, Uvicorn, Pydantic v2 | RESTful routing, CORS configuration, schema validation, review orchestration |
@@ -104,78 +104,7 @@ Once compliant content is formally approved by a human reviewer, VerifiBrand iss
 
 ---
 
-## 4. Project Folder Structure
-
-```text
-BrandLedger/
-├── .env.example                     # Comprehensive environment variable template
-├── docker-compose.yml               # PostgreSQL 16 service definition (port 5433:5432)
-├── requirements.txt                 # Core Python backend dependencies
-├── database/
-│   ├── schema.sql                   # Relational DDL (tables, constraints, indices)
-│   └── seed.sql                     # Realistic demo seed policies, versions & drafts
-├── backend/
-│   ├── app/
-│   │   ├── main.py                  # FastAPI application entry point, CORS & routers
-│   │   ├── config.py                # Pydantic BaseSettings environment loader
-│   │   ├── db.py                    # asyncpg connection pool manager
-│   │   ├── api/                     # FastAPI route handlers
-│   │   │   ├── policies.py          # GET, POST, PATCH /api/policies
-│   │   │   ├── scans.py             # POST, GET /api/scans
-│   │   │   ├── uploads.py           # POST /api/scans/upload (OCR/PDF ingestion)
-│   │   │   ├── reviews.py           # POST /api/reviews (decision & role gate)
-│   │   │   └── passports.py         # GET /api/passports/{id} (integrity check)
-│   │   ├── schemas/                 # Pydantic request/response models
-│   │   │   ├── finding.py           # Finding model and category enums
-│   │   │   ├── passport.py          # Passport response and status enum
-│   │   │   ├── policy.py            # Policy card models and normalizer
-│   │   │   ├── review.py            # Review submission and response models
-│   │   │   ├── scan.py              # Scan create and response models
-│   │   │   └── upload.py            # Extraction result models
-│   │   └── services/                # Business logic and rules engine
-│   │       ├── ai_checks.py         # Optional AI/LLM analysis fallback
-│   │       ├── evidence_verifier.py # "No receipt, no flag" evidence validation
-│   │       ├── policy_engine.py     # Main scan_draft orchestrator entry point
-│   │       ├── review_service.py    # Review recording & Content Passport hashing
-│   │       ├── rule_checks.py       # 4 deterministic rule checking categories
-│   │       └── scan_service.py      # PostgreSQL scan workflow orchestration
-│   ├── extraction_module/           # Member 5 Document & Image Extraction
-│   │   ├── brandledger_extraction/  # Multi-format extractor & Tesseract OCR
-│   │   ├── dataset/                 # Synthetic marketing test images & manifest
-│   │   ├── scripts/                 # Extraction evaluation utilities
-│   │   └── tests/                   # Extraction module unit tests
-│   └── tests/                       # Automated backend test suite
-│       ├── conftest.py              # Shared fixtures (policy card dictionaries)
-│       ├── test_rule_checks.py      # 17 deterministic rule unit tests
-│       ├── test_evidence_verifier.py# 12 evidence verification tests
-│       ├── test_policy_engine.py    # 7 policy engine orchestration tests
-│       ├── test_database_schema.py  # 6 SQL schema DDL validation tests
-│       ├── test_api_scans.py        # Scan persistence integration tests
-│       ├── test_api_reviews_passports.py # Review & passport tamper tests
-│       ├── test_api_policies.py     # Policy CRUD integration tests
-│       ├── test_api_uploads.py      # File upload endpoint tests
-│       └── test_health.py           # API health endpoint tests
-├── frontend/
-│   ├── package.json                 # Next.js scripts and dependencies
-│   ├── tsconfig.json                # TypeScript configuration
-│   ├── src/
-│   │   ├── app/                     # Next.js App Router pages
-│   │   │   ├── page.tsx             # Landing page & six-member architecture overview
-│   │   │   ├── policies/            # Member 2: Policy Library management UI
-│   │   │   ├── brand-passport/      # Member 2: Brand Identity Governance Passport
-│   │   │   └── workspace/           # Member 1: Scan Workspace integration boundary
-│   │   ├── components/              # UI, policy cards, brand headers & modals
-│   │   ├── lib/                     # Mock data, localStorage adapter & API client
-│   │   └── __tests__/               # Frontend policy store unit tests (10 tests)
-└── docs/
-    ├── architecture.md              # System Architecture Specification
-    ├── acceptance-tests.md          # Acceptance Testing Specification & Baseline
-    └── demo-script.md               # 3-Minute Presentation Demo Script & Checklist
-```
-
----
-
-## 5. Prerequisites
+## 4. Prerequisites
 
 Before installing, ensure your host machine has the following tools installed:
 
@@ -189,32 +118,9 @@ Before installing, ensure your host machine has the following tools installed:
 
 ---
 
-## 6. Environment Setup
+## 5. Docker Setup & Full-Stack Containerization
 
-BrandLedger includes a fully documented environment template:
-
-1. Copy the example file to `.env`:
-   ```bash
-   cp .env.example .env
-   ```
-
-2. Inspect `.env` settings. The default configuration connects to the local Docker PostgreSQL database on port `5433`:
-   ```ini
-   ENVIRONMENT=development
-   PORT=8000
-   ALLOWED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
-   DATABASE_URL=postgresql://brandledger_user:brandledger_secret@localhost:5433/brandledger
-   NEXT_PUBLIC_API_URL=http://127.0.0.1:8000
-   NEXT_PUBLIC_USE_BACKEND_CRUD=false
-   ```
-
-*(Note: In development, `NEXT_PUBLIC_USE_BACKEND_CRUD=false` allows the frontend Policy Library to run safely using client-side storage, decoupling frontend development from backend startup).*
-
----
-
-## 7. Docker Setup & Full-Stack Containerization
-
-BrandLedger supports complete single-command containerization via Docker Compose, as well as database-only containerization for local development.
+VerifiBrand supports complete single-command containerization via Docker Compose, as well as database-only containerization for local development.
 
 ### Option A: Complete Full-Stack Containerization (Recommended)
 Starts all three services: PostgreSQL 16 (port `5433:5432`), FastAPI Backend with Tesseract OCR pre-installed (port `8000`), and Next.js Web App (port `3000`).
@@ -268,7 +174,7 @@ If you prefer running Python and Next.js directly on your host machine for live 
 
 ---
 
-## 8. Backend Setup & Startup
+## 6. Backend Setup & Startup
 
 1. **Create and activate a Python virtual environment**:
    ```bash
@@ -296,7 +202,7 @@ If you prefer running Python and Next.js directly on your host machine for live 
 
 ---
 
-## 9. Frontend Setup & Startup
+## 7. Frontend Setup & Startup
 
 1. **Navigate to the frontend directory**:
    ```bash
@@ -349,11 +255,11 @@ If you prefer running Python and Next.js directly on your host machine for live 
 
 ---
 
-## 10. Automated Testing Instructions
+## 8. Automated Testing Instructions
 
-To maintain strict factual accuracy, tests in BrandLedger are split into **Executed Automated Baseline Tests** (verified 100% passing by QA) and **Environment-Dependent Tests** (requiring local PostgreSQL containers or specific binary drivers).
+To maintain strict factual accuracy, tests in VerifiBrand are split into **Executed Automated Baseline Tests** (verified 100% passing by QA) and **Environment-Dependent Tests** (requiring local PostgreSQL containers or specific binary drivers).
 
-### 10.1 Executed Automated Baseline Tests (52 Tests — 100% Passing)
+### 8.1 Executed Automated Baseline Tests (52 Tests — 100% Passing)
 
 Run these unit tests locally without external services:
 
@@ -389,7 +295,7 @@ Run these unit tests locally without external services:
    ```
    *Validates SQL constraints, foreign keys, and table definitions without live DB connection. Verified: 6 pass, 0 fail.*
 
-### 10.2 Environment-Dependent Tests (Pending Environment Setup)
+### 8.2 Environment-Dependent Tests (Pending Environment Setup)
 
 These test suites exist in the repository but require running background services or optional binary libraries:
 
@@ -403,7 +309,7 @@ These test suites exist in the repository but require running background service
 
 ---
 
-## 11. API Documentation
+## 9. API Documentation
 
 When the FastAPI backend is running, interactive API documentation is automatically available:
 
@@ -420,7 +326,7 @@ Key documented endpoints:
 
 ---
 
-## 12. Project Documentation Links
+## 10. Project Documentation Links
 
 Comprehensive documentation generated for hackathon review:
 
@@ -433,7 +339,7 @@ Comprehensive documentation generated for hackathon review:
 
 ---
 
-## 13. Known Limitations & Architectural Boundaries
+## 11. Known Limitations & Architectural Boundaries
 
 In accordance with strict hackathon transparency guidelines:
 
@@ -457,7 +363,7 @@ In accordance with strict hackathon transparency guidelines:
 
 ---
 
-## 14. Team Responsibilities & Ownership
+## 12. Team Responsibilities & Ownership
 
 | Team Member | Module Ownership | Deliverables |
 |---|---|---|
