@@ -44,16 +44,16 @@ export default function SecurityPage() {
       </div>
 
       {/* 5 Core Pillars */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: 28, marginBottom: 64 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: 28, marginBottom: 48 }}>
         <div className="bl-card" style={{ padding: '28px' }}>
           <div style={{ width: 40, height: 40, borderRadius: 8, background: '#F8F5EE', color: 'var(--brand-navy)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
             <UserCheck size={20} />
           </div>
           <h2 style={{ fontSize: '1.2rem', color: 'var(--brand-navy)', marginBottom: 8, fontWeight: 700 }}>
-            Role-Based Access Control (RBAC)
+            Role-Aware Workflow &amp; Access Controls
           </h2>
           <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-            Strict role partitioning ensures content creators cannot approve their own drafts. Reviews and overrides require designated Compliance Officer or Brand Manager credentials.
+            The prototype uses role-aware review states so creators and reviewers follow different paths. Content creators cannot self-approve drafts; formal sign-off requires designated Compliance Officer or Brand Manager credentials.
           </p>
         </div>
 
@@ -62,10 +62,10 @@ export default function SecurityPage() {
             <Server size={20} />
           </div>
           <h2 style={{ fontSize: '1.2rem', color: 'var(--brand-navy)', marginBottom: 8, fontWeight: 700 }}>
-            Backend Adapter Isolation
+            Server-Side Provider Isolation
           </h2>
           <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-            The browser never calls AI providers or external APIs directly. All requests pass through VerifiBrand&rsquo;s backend adapter, keeping API keys, authentication tokens, and secrets securely server-side.
+            The browser never calls AI providers or external APIs directly. AI-service credentials, API tokens, and secrets are managed server-side rather than exposed in client-side code.
           </p>
         </div>
 
@@ -77,7 +77,7 @@ export default function SecurityPage() {
             Source-Linked Verification
           </h2>
           <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-            Every finding cites an authoritative, registered policy ID, active version snapshot, and exact verbatim quotation. We reject opaque &ldquo;black-box&rdquo; confidence percentages.
+            Every finding cites an authoritative, registered policy ID, active version snapshot, and exact verbatim quotation. We provide source-linked explanations rather than unsupported black-box scores.
           </p>
         </div>
 
@@ -98,10 +98,10 @@ export default function SecurityPage() {
             <Key size={20} />
           </div>
           <h2 style={{ fontSize: '1.2rem', color: 'var(--brand-navy)', marginBottom: 8, fontWeight: 700 }}>
-            Verifiable Content Passports
+            Traceable Content Passports
           </h2>
           <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-            Approved versions are stamped with a cryptographic SHA-256 fingerprint linking the content version, active policy rules, reviewer ID, and timestamp in an immutable audit ledger.
+            Approved versions are stamped with a cryptographic SHA-256 fingerprint linking the content version, active policy rules, reviewer ID, and timestamp in a tamper-evident audit trail.
           </p>
         </div>
 
@@ -115,6 +115,24 @@ export default function SecurityPage() {
           <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
             If external AI analysis is temporarily unavailable, VerifiBrand never falsely reports &ldquo;No issues found.&rdquo; Deterministic checks run independently and pending statuses are clearly communicated.
           </p>
+        </div>
+      </div>
+
+      {/* Prototype Scope & Limitation Statement */}
+      <div style={{
+        background: '#FFF5D9',
+        border: '1px solid #E8C76A',
+        borderRadius: 8,
+        padding: '16px 22px',
+        maxWidth: 860,
+        margin: '0 auto 40px',
+        display: 'flex',
+        alignItems: 'flex-start',
+        gap: 12
+      }}>
+        <AlertTriangle size={18} color="#8A5A00" style={{ flexShrink: 0, marginTop: 2 }} />
+        <div style={{ fontSize: '0.88rem', color: '#6B4E00', lineHeight: 1.55 }}>
+          <strong>Prototype Transparency Note:</strong> This hackathon prototype is designed to demonstrate the governed review workflow. Production deployment in an enterprise environment would incorporate additional organizational controls, extended retention policies, and formal security audits.
         </div>
       </div>
 
@@ -155,11 +173,11 @@ export default function SecurityPage() {
           Audit the review process yourself.
         </h3>
         <p style={{ color: '#CBD5E1', marginBottom: 24, fontSize: '1.05rem' }}>
-          Inspect the cryptographic audit trail and Content Passports in the live workspace.
+          Inspect the chronological audit trail and Content Passports in the live workspace.
         </p>
         <div style={{ display: 'flex', gap: 14, justifyContent: 'center' }}>
           <Link href="/audit" style={{ background: '#FFFFFF', color: '#1E293B', padding: '12px 24px', borderRadius: 6, fontWeight: 700 }}>
-            Open audit ledger
+            Open audit trail
           </Link>
           <Link href="/workspace" style={{ background: 'transparent', border: '1px solid rgba(255, 255, 255, 0.4)', color: '#FFFFFF', padding: '12px 24px', borderRadius: 6, fontWeight: 600 }}>
             Open workspace

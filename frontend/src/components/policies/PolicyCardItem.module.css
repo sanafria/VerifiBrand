@@ -178,8 +178,8 @@
 }
 
 .evidenceCallout {
-  background: rgba(15, 23, 42, 0.7);
-  border: 1px solid rgba(56, 189, 248, 0.15);
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid rgba(56, 189, 248, 0.25);
   border-left: 3px solid #38bdf8;
   border-radius: var(--radius-sm);
   padding: 10px 14px;
@@ -202,7 +202,7 @@
 .evidenceQuote {
   font-size: 0.82rem;
   font-style: italic;
-  color: var(--text-primary);
+  color: #F8FAFC;
   line-height: 1.45;
 }
 

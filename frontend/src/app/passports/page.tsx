@@ -34,6 +34,7 @@ function PassportsContent() {
   const [tamperedHash, setTamperedHash] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [showTechnicalDetails, setShowTechnicalDetails] = useState(false);
+  const [showDemoControls, setShowDemoControls] = useState(false);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -252,6 +253,26 @@ function PassportsContent() {
           </div>
 
           <div style={{ display: 'flex', gap: 10 }}>
+            <button
+              type="button"
+              onClick={() => setShowDemoControls(!showDemoControls)}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '5px 12px',
+                borderRadius: 6,
+                background: showDemoControls ? 'var(--brand-navy)' : 'rgba(30, 41, 59, 0.08)',
+                color: showDemoControls ? '#FFFFFF' : 'var(--brand-navy)',
+                fontSize: '0.76rem',
+                fontWeight: 700,
+                border: '1px solid var(--border-subtle)',
+                cursor: 'pointer'
+              }}
+            >
+              <ShieldAlert size={13} color={showDemoControls ? '#F59E0B' : 'currentColor'} />
+              <span>{showDemoControls ? 'Hide Testing Controls' : 'Demo & Testing Controls'}</span>
+            </button>
             <Link href="/review" className={styles.backLink}>
               <ArrowLeft size={14} /> Back to Review Gate
             </Link>
@@ -267,24 +288,40 @@ function PassportsContent() {
         </div>
 
         {/* Demo Preset Buttons for Presentation */}
-        <div style={{ display: 'flex', gap: 10, marginTop: 16, flexWrap: 'wrap' }}>
-          <button
-            type="button"
-            className={styles.presetBtn}
-            onClick={handleLoadAuthentic}
-          >
-            <CheckCheck size={14} color="var(--brand-forest)" />
-            <span>Preset: Verify Authentic Record</span>
-          </button>
-          <button
-            type="button"
-            className={styles.presetBtn}
-            onClick={handleSimulateTamper}
-          >
-            <AlertOctagon size={14} color="var(--status-blocked-text)" />
-            <span>Demo AT-022: Simulate Downstream Tampering</span>
-          </button>
-        </div>
+        {showDemoControls && (
+          <div style={{
+            marginTop: 16,
+            padding: '12px 16px',
+            background: 'var(--bg-card)',
+            border: '1px solid var(--border-light)',
+            borderRadius: 8,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 10
+          }}>
+            <span style={{ fontSize: '0.76rem', fontWeight: 700, color: 'var(--brand-gold)', textTransform: 'uppercase' }}>
+              Tamper Verification &amp; Simulation Tests:
+            </span>
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                className={styles.presetBtn}
+                onClick={handleLoadAuthentic}
+              >
+                <CheckCheck size={14} color="var(--brand-forest)" />
+                <span>Verify Authentic Record</span>
+              </button>
+              <button
+                type="button"
+                className={styles.presetBtn}
+                onClick={handleSimulateTamper}
+              >
+                <AlertOctagon size={14} color="var(--status-blocked-text)" />
+                <span>Simulate Downstream Tampering</span>
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Hero Key Information Cards */}
@@ -312,7 +349,7 @@ function PassportsContent() {
         <div className={styles.metricCard}>
           <div className={styles.metricLabel}>Reviewer Sign-off</div>
           <div className={styles.metricVal} style={{ color: 'var(--brand-gold)', fontSize: '1.25rem' }}>
-            {snapshot.reviewer_name || 'Haany'}
+            {snapshot.reviewer_name || 'Authorised Reviewer'}
           </div>
           <div className={styles.metricSub}>
             {snapshot.reviewer_role || 'Senior Compliance Officer'}
@@ -401,7 +438,7 @@ function PassportsContent() {
 
                   <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                      <User size={12} /> {pSnap.reviewer_name || 'Haany'} • v{pSnap.version || 4}
+                      <User size={12} /> {pSnap.reviewer_name || 'Reviewer'} • v{pSnap.version || 4}
                     </span>
                     <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                       <Clock size={12} /> {p.created_at ? p.created_at.slice(0, 10) : '2026-10-24'}
@@ -415,7 +452,7 @@ function PassportsContent() {
 
         {/* Right Column: Content Passport Inspection */}
         {selectedPassport ? (
-          <div className={styles.certificateCard}>
+          <div className={styles.certificateCard} data-tour="passport-card">
             {/* Watermark Seal */}
             <div className={styles.watermarkContainer}>
               <CertificateSeal verified={selectedPassport.hash_verified} size={150} />
@@ -612,14 +649,14 @@ function PassportsContent() {
                 <div className={styles.reviewerTop}>
                   <div className={styles.reviewerInfo}>
                     <div className={styles.reviewerAvatar}>
-                      {(snapshot.reviewer_name || 'Haany').charAt(0)}
+                      {(snapshot.reviewer_name || 'Reviewer').charAt(0)}
                     </div>
                     <div>
                       <div style={{ fontSize: '0.94rem', fontWeight: 800, color: 'var(--text-primary)' }}>
-                        {snapshot.reviewer_name || 'Haany'}
+                        {snapshot.reviewer_name || 'Authorised Reviewer'}
                       </div>
                       <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>
-                        {snapshot.reviewer_role || 'Senior Compliance Officer'} • ID: <code>{snapshot.reviewer_id || 'rev-haany-01'}</code>
+                        {snapshot.reviewer_role || 'Senior Compliance Officer'} • ID: <code>{snapshot.reviewer_id || 'rev-auth-01'}</code>
                       </div>
                     </div>
                   </div>

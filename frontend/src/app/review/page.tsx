@@ -37,6 +37,7 @@ function ReviewGateContent() {
   const [successResponse, setSuccessResponse] = useState<ReviewResponse | null>(null);
   const [backendConnected, setBackendConnected] = useState<boolean | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [showDemoControls, setShowDemoControls] = useState(false);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -215,29 +216,31 @@ function ReviewGateContent() {
         <div className={styles.headerTop}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
             <span className={styles.teamBadge}>
-              <Shield size={14} /> Review Gateway • Separation of Duties Engine
-            </span>
-            <span style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 6,
-              fontSize: '0.75rem',
-              fontWeight: 600,
-              padding: '3px 10px',
-              borderRadius: 20,
-              background: backendConnected ? 'var(--status-approved-bg)' : 'var(--status-warning-bg)',
-              border: `1px solid ${backendConnected ? 'rgba(27, 77, 62, 0.25)' : 'rgba(146, 64, 14, 0.25)'}`,
-              color: backendConnected ? 'var(--status-approved-text)' : 'var(--status-warning-text)',
-            }}>
-              <span style={{
-                width: 7, height: 7, borderRadius: '50%',
-                background: backendConnected ? 'var(--brand-forest)' : 'var(--brand-gold)',
-              }} />
-              {backendConnected ? 'FastAPI Backend Online (:8000)' : 'Client Cryptographic Engine (Deterministic Safe Mode)'}
+              <Shield size={14} /> Review Gate &bull; Authorised Reviewer Approval
             </span>
           </div>
 
           <div style={{ display: 'flex', gap: 10 }}>
+            <button
+              type="button"
+              onClick={() => setShowDemoControls(!showDemoControls)}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '5px 12px',
+                borderRadius: 6,
+                background: showDemoControls ? 'var(--brand-navy)' : 'rgba(30, 41, 59, 0.08)',
+                color: showDemoControls ? '#FFFFFF' : 'var(--brand-navy)',
+                fontSize: '0.76rem',
+                fontWeight: 700,
+                border: '1px solid var(--border-subtle)',
+                cursor: 'pointer'
+              }}
+            >
+              <Zap size={13} color={showDemoControls ? '#F59E0B' : 'currentColor'} />
+              <span>{showDemoControls ? 'Hide Testing Controls' : 'Demo & Testing Controls'}</span>
+            </button>
             <Link
               href="/passports"
               className={styles.viewPassportsLink}
@@ -249,28 +252,65 @@ function ReviewGateContent() {
 
         <h1 className={styles.title}>Review content before publication</h1>
         <p className={styles.desc}>
-          Check drafts against active brand policies, substantiate claims, and generate tamper-evident content passports before publishing.
+          Check drafts against active brand policies, review evidence citations, and record authorized publication decisions with Content Passports.
         </p>
 
-        {/* Presentation Fast Presets */}
-        <div style={{ display: 'flex', gap: 10, marginTop: 16, flexWrap: 'wrap' }}>
-          <button
-            type="button"
-            className={styles.presetBtn}
-            onClick={handleLoadAct4Preset}
-          >
-            <Check size={14} color="var(--brand-forest)" />
-            <span>Preset: Act 4 (Compliant Snippet B • Reviewer)</span>
-          </button>
-          <button
-            type="button"
-            className={styles.presetBtn}
-            onClick={handleLoad403Demo}
-          >
-            <AlertOctagon size={14} color="var(--status-blocked-text)" />
-            <span>Test AT-018: Creator Self-Approval 403 Gate</span>
-          </button>
-        </div>
+        {/* Collapsible Presentation & Testing Controls (Collapsible for Judge / Operator) */}
+        {showDemoControls && (
+          <div style={{
+            marginTop: 16,
+            padding: '12px 16px',
+            background: 'var(--bg-card)',
+            border: '1px solid var(--border-light)',
+            borderRadius: 8,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 10
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+              <span style={{ fontSize: '0.76rem', fontWeight: 700, color: 'var(--brand-gold)', textTransform: 'uppercase' }}>
+                Demo Operators &amp; Evaluation Testing:
+              </span>
+              <span style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                fontSize: '0.72rem',
+                fontWeight: 600,
+                padding: '2px 8px',
+                borderRadius: 20,
+                background: backendConnected ? 'var(--status-approved-bg)' : 'var(--status-warning-bg)',
+                border: `1px solid ${backendConnected ? 'rgba(27, 77, 62, 0.25)' : 'rgba(146, 64, 14, 0.25)'}`,
+                color: backendConnected ? 'var(--status-approved-text)' : 'var(--status-warning-text)',
+              }}>
+                <span style={{
+                  width: 6, height: 6, borderRadius: '50%',
+                  background: backendConnected ? 'var(--brand-forest)' : 'var(--brand-gold)',
+                }} />
+                {backendConnected ? 'FastAPI Service Online (:8000)' : 'Client Safe Mode Active'}
+              </span>
+            </div>
+
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                className={styles.presetBtn}
+                onClick={handleLoadAct4Preset}
+              >
+                <Check size={14} color="var(--brand-forest)" />
+                <span>Preset: Act 4 (Compliant Draft &bull; Reviewer Role)</span>
+              </button>
+              <button
+                type="button"
+                className={styles.presetBtn}
+                onClick={handleLoad403Demo}
+              >
+                <AlertOctagon size={14} color="var(--status-blocked-text)" />
+                <span>Test AT-018: Creator Self-Approval 403 Gate</span>
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Role Switcher Bar */}
@@ -279,7 +319,7 @@ function ReviewGateContent() {
           <UserCheck size={18} color="var(--brand-navy)" />
           <div>
             <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-              Active Authorization Context (X-User-Role Header):
+              Reviewer Authorization &amp; Access Profile:
             </div>
             <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
               Active User: <strong style={{ color: 'var(--text-primary)' }}>{reviewerName}</strong> (ID: <code>{reviewerId}</code>)
@@ -294,7 +334,7 @@ function ReviewGateContent() {
             onClick={() => handleRoleChange('reviewer')}
           >
             <Shield size={14} />
-            <span>Reviewer (Authorized)</span>
+            <span>Authorised Reviewer</span>
           </button>
           <button
             type="button"
@@ -302,7 +342,7 @@ function ReviewGateContent() {
             onClick={() => handleRoleChange('creator')}
           >
             <Lock size={14} />
-            <span>Creator (Triggers 403)</span>
+            <span>Content Creator</span>
           </button>
           <button
             type="button"
@@ -310,7 +350,7 @@ function ReviewGateContent() {
             onClick={() => handleRoleChange('admin')}
           >
             <Award size={14} />
-            <span>Admin (Authorized)</span>
+            <span>Administrator</span>
           </button>
         </div>
       </div>
@@ -318,7 +358,7 @@ function ReviewGateContent() {
       {/* Main Review Grid */}
       <div className={styles.reviewGrid}>
         {/* Left Column: Submissions Queue */}
-        <div className={styles.queueCard}>
+        <div className={styles.queueCard} data-tour="review-queue">
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
             <span style={{ fontSize: '0.78rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
               Submissions Queue ({queue.length})
@@ -504,14 +544,14 @@ function ReviewGateContent() {
               </div>
             </div>
 
-            {/* Evidence & Findings Audit Section ("No receipt, no flag") */}
+            {/* Evidence & Findings Audit Section */}
             <div>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
                 <span style={{ fontSize: '0.78rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
-                  Policy Evidence Audit Trail ({selectedItem.findings?.length || 0})
+                  Source Policy Evidence ({selectedItem.findings?.length || 0})
                 </span>
                 <span style={{ fontSize: '0.74rem', color: 'var(--brand-navy-light)', fontWeight: 600 }}>
-                  Guaranteed Quote Citations Enforced
+                  Every finding links to a registered source
                 </span>
               </div>
 
@@ -655,7 +695,7 @@ function ReviewGateContent() {
                     href={`/passports?id=${successResponse.passport_id}`}
                     className={styles.inspectBtn}
                   >
-                    <span>Inspect Passport Certificate</span>
+                    <span>Inspect Content Passport</span>
                     <ArrowRight size={14} />
                   </Link>
                 </div>
@@ -676,13 +716,13 @@ function ReviewGateContent() {
                     <code style={{ color: 'var(--brand-navy)', fontWeight: 700 }}>{successResponse.passport_id}</code>
                   </div>
                   <div>
-                    <span style={{ color: 'var(--text-muted)', display: 'block' }}>Canonical SHA-256 Fingerprint:</span>
+                    <span style={{ color: 'var(--text-muted)', display: 'block' }}>Integrity Fingerprint:</span>
                     <code style={{ color: 'var(--brand-forest)', fontSize: '0.72rem', fontWeight: 700 }}>
-                      {successResponse.sha256 ? `${successResponse.sha256.slice(0, 24)}...` : 'Verified Untampered'}
+                      {successResponse.sha256 ? `${successResponse.sha256.slice(0, 24)}...` : 'Verified Record'}
                     </code>
                   </div>
                   <div>
-                    <span style={{ color: 'var(--text-muted)', display: 'block' }}>Authorized Sign-off:</span>
+                    <span style={{ color: 'var(--text-muted)', display: 'block' }}>Authorised Sign-off:</span>
                     <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{successResponse.reviewer_name}</span>
                   </div>
                 </div>
@@ -693,7 +733,7 @@ function ReviewGateContent() {
             <div className={styles.actionPanel}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 <label style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                  Reviewer Sign-Off Comments & Instructions:
+                  Reviewer Sign-Off Comments &amp; Instructions:
                 </label>
                 <input
                   type="text"
@@ -713,7 +753,7 @@ function ReviewGateContent() {
                 >
                   <CheckCircle2 size={16} />
                   <span>
-                    {submitting ? 'Executing Cryptographic Minting...' : 'Approve & Mint Content Passport'}
+                    {submitting ? 'Recording Human Approval...' : 'Approve & Issue Content Passport'}
                   </span>
                 </button>
 
@@ -724,7 +764,7 @@ function ReviewGateContent() {
                   disabled={submitting}
                 >
                   <XCircle size={16} />
-                  <span>Reject & Request Revision</span>
+                  <span>Reject &amp; Request Changes</span>
                 </button>
               </div>
 

@@ -59,13 +59,13 @@
   font-size: 1.85rem;
   font-weight: 800;
   letter-spacing: -0.03em;
-  color: var(--text-primary);
+  color: #FFFFFF;
   margin-bottom: 8px;
 }
 
 .desc {
   font-size: 0.95rem;
-  color: var(--text-secondary);
+  color: #E2E8F0;
   line-height: 1.55;
   max-width: 900px;
 }

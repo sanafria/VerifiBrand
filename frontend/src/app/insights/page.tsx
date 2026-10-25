@@ -52,31 +52,53 @@ export default function InsightsPage() {
           </div>
         </div>
 
-        <h1 className={styles.title}>Brand Ledger Compliance Intelligence</h1>
+        <h1 className={styles.title}>Governance Insights</h1>
         <p className={styles.desc}>
-          Real-time visibility into brand policy violations, compliance resolution trends, high-risk rule citations, and cryptographic Content Passport issuance across all marketing channels.
+          Visibility into recurring policy findings, resolution patterns, high-risk rule citations, and Content Passport issuance across marketing channels.
         </p>
+
+        {/* Governance Metrics Baseline Cue */}
+        <div style={{
+          marginTop: 16,
+          padding: '10px 16px',
+          background: 'rgba(255, 255, 255, 0.08)',
+          border: '1px solid rgba(255, 255, 255, 0.15)',
+          borderRadius: 8,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: 10,
+          color: '#E2E8F0',
+          fontSize: '0.82rem',
+          fontWeight: 500
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{
+              background: '#38bdf8',
+              color: '#0F172A',
+              fontSize: '0.7rem',
+              fontWeight: 800,
+              padding: '2px 8px',
+              borderRadius: 4,
+              letterSpacing: '0.04em',
+              textTransform: 'uppercase'
+            }}>
+              Active Monitoring
+            </span>
+            <span>Real-time aggregation across all active brand policy cards and review channels</span>
+          </div>
+          <span style={{ fontSize: '0.78rem', color: '#94A3B8' }}>
+            Updates automatically with every scan &amp; approved passport
+          </span>
+        </div>
       </div>
 
-      {/* KPI Stats Grid */}
-      <div className={styles.statsGrid}>
+      {/* KPI Stats Grid - Honest Operational Demo Counts */}
+      <div className={styles.statsGrid} data-tour="insights-stats">
         <div className={styles.statCard}>
           <div className={styles.statHeader}>
-            <span className={styles.statLabel}>Overall Compliance Score</span>
-            <div className={styles.statIcon} style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#34d399' }}>
-              <Shield size={16} />
-            </div>
-          </div>
-          <div className={styles.statValue}>94.2%</div>
-          <div className={`${styles.statTrend} ${styles.trendPositive}`}>
-            <TrendingUp size={14} />
-            <span>+3.8% improvement vs last 30 days</span>
-          </div>
-        </div>
-
-        <div className={styles.statCard}>
-          <div className={styles.statHeader}>
-            <span className={styles.statLabel}>Total Drafts Scanned</span>
+            <span className={styles.statLabel}>Sample Drafts Scanned</span>
             <div className={styles.statIcon} style={{ background: 'rgba(56, 189, 248, 0.15)', color: '#38bdf8' }}>
               <FileText size={16} />
             </div>
@@ -89,12 +111,12 @@ export default function InsightsPage() {
 
         <div className={styles.statCard}>
           <div className={styles.statHeader}>
-            <span className={styles.statLabel}>Blocker Resolution Rate</span>
-            <div className={styles.statIcon} style={{ background: 'rgba(168, 85, 247, 0.15)', color: '#c084fc' }}>
+            <span className={styles.statLabel}>Findings Resolved</span>
+            <div className={styles.statIcon} style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#34d399' }}>
               <CheckCircle2 size={16} />
             </div>
           </div>
-          <div className={styles.statValue}>98.4%</div>
+          <div className={styles.statValue}>136</div>
           <div className={`${styles.statTrend} ${styles.trendPositive}`}>
             <TrendingUp size={14} />
             <span>One-click suggested fixes accepted</span>
@@ -103,14 +125,27 @@ export default function InsightsPage() {
 
         <div className={styles.statCard}>
           <div className={styles.statHeader}>
-            <span className={styles.statLabel}>Active Passports Minted</span>
+            <span className={styles.statLabel}>Items Awaiting Review</span>
             <div className={styles.statIcon} style={{ background: 'rgba(245, 158, 11, 0.15)', color: '#fbbf24' }}>
+              <Shield size={16} />
+            </div>
+          </div>
+          <div className={styles.statValue}>6</div>
+          <div className={styles.statTrend} style={{ color: '#fbbf24' }}>
+            <span>Pending authorised human decision</span>
+          </div>
+        </div>
+
+        <div className={styles.statCard}>
+          <div className={styles.statHeader}>
+            <span className={styles.statLabel}>Content Passports Issued</span>
+            <div className={styles.statIcon} style={{ background: 'rgba(168, 85, 247, 0.15)', color: '#c084fc' }}>
               <Award size={16} />
             </div>
           </div>
           <div className={styles.statValue}>28</div>
           <div className={styles.statTrend} style={{ color: '#34d399' }}>
-            <span>0 cryptographic tamper alerts</span>
+            <span>Traceable approval records</span>
           </div>
         </div>
       </div>
@@ -187,7 +222,7 @@ export default function InsightsPage() {
             marginTop: 4
           }}>
             <span style={{ fontSize: '0.76rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
-              Brand Voice Adherence (Brand Passport):
+              Brand Voice Adherence (Governance Guidelines):
             </span>
             <div style={{ display: 'flex', gap: 12, marginTop: 8, flexWrap: 'wrap' }}>
               <span style={{ fontSize: '0.82rem', color: '#38bdf8', fontWeight: 600 }}>• Authoritative (96%)</span>

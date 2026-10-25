@@ -71,15 +71,78 @@ export default function DemoPreviewPage() {
           color: 'var(--brand-navy)',
           marginTop: 16,
           flexWrap: 'wrap',
-          justifyContent: 'center'
+          justifyContent: 'center',
+          alignItems: 'center'
         }}>
+          <span style={{
+            background: '#FFF5D9',
+            border: '1px solid #E8C76A',
+            color: '#8A5A00',
+            fontSize: '0.72rem',
+            fontWeight: 800,
+            padding: '2px 8px',
+            borderRadius: 4,
+            textTransform: 'uppercase'
+          }}>
+            Fictional Sample Data
+          </span>
           <span>Organisation: <strong>Northstar Membership</strong></span>
           <span>&bull;</span>
           <span>Campaign: <strong>Summer Membership Campaign</strong></span>
           <span>&bull;</span>
-          <span>Creator: <strong>Sana</strong></span>
-          <span>&bull;</span>
-          <span>Reviewer: <strong>Haany</strong></span>
+          <span>Status: <strong>Under Review</strong></span>
+        </div>
+
+        {/* Status Summary Bar as requested in review */}
+        <div style={{
+          marginTop: 20,
+          padding: '12px 20px',
+          borderRadius: 8,
+          background: isApproved
+            ? 'var(--status-approved-bg)'
+            : suggestionApplied
+            ? 'var(--status-review-bg)'
+            : 'var(--status-warning-bg)',
+          border: `1px solid ${
+            isApproved
+              ? 'rgba(27, 77, 62, 0.3)'
+              : suggestionApplied
+              ? 'rgba(30, 64, 175, 0.25)'
+              : 'rgba(146, 64, 14, 0.3)'
+          }`,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: 12
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            {isApproved ? (
+              <CheckCircle2 size={18} color="var(--brand-forest)" />
+            ) : suggestionApplied ? (
+              <Clock size={18} color="var(--status-review-text)" />
+            ) : (
+              <AlertTriangle size={18} color="var(--status-warning-text)" />
+            )}
+            <span style={{
+              fontWeight: 700,
+              fontSize: '0.92rem',
+              color: isApproved
+                ? 'var(--status-approved-text)'
+                : suggestionApplied
+                ? 'var(--status-review-text)'
+                : 'var(--status-warning-text)'
+            }}>
+              {isApproved
+                ? 'Approved for Publication · Content Passport Issued'
+                : suggestionApplied
+                ? 'Correction Applied · Reviewer Decision Pending'
+                : '1 finding open · Reviewer decision pending'}
+            </span>
+          </div>
+          <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+            {isApproved ? 'Sign-off complete by Authorised Reviewer' : 'Authorised reviewer required before release'}
+          </span>
         </div>
       </div>
 
@@ -245,26 +308,49 @@ export default function DemoPreviewPage() {
             )}
 
             {!isApproved && suggestionApplied && (
-              <button
-                type="button"
-                onClick={handleApprove}
-                style={{
-                  background: '#166534',
-                  color: '#FFFFFF',
-                  padding: '10px 16px',
-                  borderRadius: 6,
-                  fontWeight: 700,
-                  fontSize: '0.9rem',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 8,
-                  cursor: 'pointer'
-                }}
-              >
-                <UserCheck size={16} />
-                <span>Approve version as Reviewer Haany</span>
-              </button>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <button
+                  type="button"
+                  onClick={handleApprove}
+                  style={{
+                    background: '#166534',
+                    color: '#FFFFFF',
+                    padding: '10px 16px',
+                    borderRadius: 6,
+                    fontWeight: 700,
+                    fontSize: '0.9rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 8,
+                    cursor: 'pointer'
+                  }}
+                >
+                  <UserCheck size={16} />
+                  <span>Approve version as Authorised Reviewer</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleRevert}
+                  style={{
+                    background: 'transparent',
+                    border: '1px solid #D97706',
+                    color: '#B45309',
+                    padding: '8px 14px',
+                    borderRadius: 6,
+                    fontWeight: 600,
+                    fontSize: '0.85rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 6,
+                    cursor: 'pointer'
+                  }}
+                >
+                  <RotateCcw size={14} />
+                  <span>Request further changes</span>
+                </button>
+              </div>
             )}
           </div>
         </div>
@@ -275,8 +361,8 @@ export default function DemoPreviewPage() {
             <span style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)' }}>
               3. Evidence
             </span>
-            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-              Source Verifier
+            <span style={{ fontSize: '0.75rem', color: 'var(--brand-forest)', fontWeight: 600 }}>
+              Source evidence
             </span>
           </div>
 
@@ -372,7 +458,7 @@ export default function DemoPreviewPage() {
           }}>
             <div><strong>Content ID:</strong> CMP-1042</div>
             <div><strong>Approved version:</strong> 2</div>
-            <div><strong>Reviewed by:</strong> Haany (Brand Manager)</div>
+            <div><strong>Reviewed by:</strong> Authorised Compliance Reviewer</div>
             <div><strong>Evidence used:</strong> 3 registered sources</div>
             <div><strong>Decision:</strong> APPROVED</div>
             <div><strong>Timestamp:</strong> 24 Oct 2026, 14:32</div>

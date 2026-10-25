@@ -25,10 +25,10 @@ interface FindingItem {
 }
 
 export default function ScanWorkspacePage() {
-  // Input form state
-  const [title, setTitle] = useState('Summer Campaign Draft');
-  const [contentText, setContentText] = useState('Our customers can access the exclusive Summer Discount today!');
-  const [scanDate, setScanDate] = useState('2026-07-01');
+  // Input form state (clean initial state for new users)
+  const [title, setTitle] = useState('');
+  const [contentText, setContentText] = useState('');
+  const [scanDate, setScanDate] = useState('2026-10-25');
   const [channel, setChannel] = useState('social');
 
   // AdaptionLabs AI Blueprint Controls
@@ -46,8 +46,11 @@ export default function ScanWorkspacePage() {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [ocrInfo, setOcrInfo] = useState<{ fileName: string; method: string; resolution: string } | null>(null);
 
-  // Load policy count on mount
+  // Load policy count and sync date on mount
   useEffect(() => {
+    try {
+      setScanDate(new Date().toISOString().split('T')[0]);
+    } catch {}
     async function loadPolicies() {
       try {
         const policies = await policyClient.getApprovedPoliciesForScan();
@@ -309,17 +312,17 @@ export default function ScanWorkspacePage() {
       <div className={styles.banner}>
         <div className={styles.headerTop}>
           <span className={styles.teamBadge}>
-            <Cpu size={14} /> Scan Workspace • Pre-Publication Compliance Engine
+            <Cpu size={14} /> Scan Workspace • Pre-Publication Review
           </span>
           <div className={styles.tenetBadge}>
             <span className={styles.pulseDot} />
-            <span>&ldquo;No receipt, no flag&rdquo; Blueprint Scanner</span>
+            <span>Evidence-Backed Review &bull; Every finding links to a source</span>
           </div>
         </div>
 
-        <h1 className={styles.title}>Marketing Content Pre-Publication Workspace</h1>
+        <h1 className={styles.title}>Review content before publication</h1>
         <p className={styles.desc}>
-          Submit marketing copy, campaign drafts, or extracted OCR text to verify compliance against approved brand policy cards. Every flagged finding requires an immutable policy version and verbatim quotation.
+          Add a campaign draft, paste copy, or upload an asset. VerifiBrand checks it against active Policy Cards and shows the source behind each finding.
         </p>
 
         {/* Quick Ribbon Navigation to all modules */}
@@ -329,7 +332,7 @@ export default function ScanWorkspacePage() {
             <FileText size={13} /> Policy Library
           </Link>
           <Link href="/brand-passport" className={styles.ribbonLink}>
-            <Award size={13} /> Brand Passport
+            <Award size={13} /> Brand Guidelines
           </Link>
           <Link href="/review" className={styles.ribbonLink}>
             <Shield size={13} /> Review Gate
@@ -338,17 +341,17 @@ export default function ScanWorkspacePage() {
             <CheckCircle2 size={13} /> Content Passports
           </Link>
           <Link href="/insights" className={styles.ribbonLink}>
-            <BarChart2 size={13} /> Executive Insights
+            <BarChart2 size={13} /> Governance Insights
           </Link>
           <Link href="/audit" className={styles.ribbonLink}>
-            <History size={13} /> Cryptographic Audit Log
+            <History size={13} /> Audit Trail
           </Link>
         </div>
       </div>
 
       {/* Main 2-Column Grid */}
       <div className={styles.workspaceGrid}>
-        {/* Left Column: Creator Editor & AdaptionLabs Controls */}
+        {/* Left Column: Creator Editor & Governance Controls */}
         <div className={styles.editorCard}>
           <div className={styles.cardHeader}>
             <h2 className={styles.cardTitle}>
@@ -356,25 +359,29 @@ export default function ScanWorkspacePage() {
               Creative Content Draft
             </h2>
             <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-              Draft ID: <code style={{ color: '#38bdf8' }}>drft_2026_demo</code>
+              {title ? (
+                <>Draft ID: <code style={{ color: '#38bdf8' }}>drft_active</code></>
+              ) : (
+                <span>New Draft Submission</span>
+              )}
             </span>
           </div>
 
           {/* Quick Demo Snippets */}
-          <div className={styles.presetsSection}>
+          <div className={styles.presetsSection} data-tour="workspace-presets">
             <div className={styles.presetsLabel}>
               <Sparkles size={14} color="#f59e0b" />
-              <span>Pre-Staged Demo Inputs (3-Minute Script):</span>
+              <span>Try a sample campaign:</span>
             </div>
             <div className={styles.presetButtons}>
               <button
                 type="button"
                 className={`${styles.presetBtn} ${styles.presetBtnA}`}
                 onClick={handleLoadSnippetA}
-                title="Loads non-compliant draft citing pol_term_001 and pol_offer_002"
+                title="Loads sample draft with terminology and offer validity issues"
               >
                 <AlertTriangle size={14} />
-                Snippet A (Violations)
+                Sample with issues
               </button>
               <button
                 type="button"
@@ -383,7 +390,7 @@ export default function ScanWorkspacePage() {
                 title="Loads clean draft with approved terminology and current pricing"
               >
                 <CheckCircle2 size={14} />
-                Snippet B (Compliant)
+                Compliant sample
               </button>
               <button
                 type="button"
@@ -392,7 +399,7 @@ export default function ScanWorkspacePage() {
                 title="Loads text extracted from img_clear_offer.png"
               >
                 <FileText size={14} />
-                OCR Sample Banner
+                Image sample
               </button>
             </div>
           </div>
@@ -435,7 +442,7 @@ export default function ScanWorkspacePage() {
           </div>
 
           {/* File Upload / OCR Dropzone */}
-          <label className={styles.dropzone}>
+          <label className={styles.dropzone} data-tour="workspace-dropzone">
             <input
               type="file"
               accept=".png,.jpg,.jpeg,.webp,.pdf,.txt"
@@ -459,7 +466,7 @@ export default function ScanWorkspacePage() {
           </label>
 
           {/* Draft Textarea */}
-          <div className={styles.textareaWrapper}>
+          <div className={styles.textareaWrapper} data-tour="workspace-textarea">
             <label className={styles.inputLabel} style={{ marginBottom: 6 }}>
               Marketing Copy / Body Content
             </label>
@@ -476,14 +483,14 @@ export default function ScanWorkspacePage() {
             </div>
           </div>
 
-          {/* AI-Assisted Analysis & Governance Checks Card (Section 17) */}
+          {/* Review Configuration Card */}
           <div className={styles.aiCard}>
             <div className={styles.aiHeader}>
               <div className={styles.aiTitleGroup}>
                 <Sparkles size={16} color="var(--brand-gold)" />
-                <span className={styles.aiTitle}>AI-Assisted Analysis &amp; Governance Engine</span>
+                <span className={styles.aiTitle}>Review Configuration</span>
               </div>
-              <label className={styles.toggleSwitch} title="Toggle AI-assisted analysis">
+              <label className={styles.toggleSwitch} title="Toggle AI-assisted review checks">
                 <input
                   type="checkbox"
                   checked={adaptionLabsAi}
@@ -494,22 +501,22 @@ export default function ScanWorkspacePage() {
             </div>
 
             <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: 1.45 }}>
-              AI-assisted findings. Human-controlled decisions. Feeds active Policy Cards as constraints, suppressing ungrounded suggestions and linking every flag to source evidence.
+              AI-assisted findings. Human-controlled decisions. Evaluates draft copy against active Policy Cards, requiring a verbatim source quotation for every flagged finding.
             </p>
 
             {adaptionLabsAi && (
               <div className={styles.aiPillsGrid}>
                 <div className={styles.aiPill}>
-                  <div className={styles.aiPillLabel}>provider_adapter</div>
-                  <div className={styles.aiPillValue} style={{ color: 'var(--brand-forest)' }}>Connected · Server-Side</div>
+                  <div className={styles.aiPillLabel}>AI-Assisted Checks</div>
+                  <div className={styles.aiPillValue} style={{ color: '#1E40AF' }}>Tone &bull; Claims &bull; Terminology</div>
                 </div>
                 <div className={styles.aiPill}>
-                  <div className={styles.aiPillLabel}>policy_constraints</div>
-                  <div className={styles.aiPillValue}>{activePolicyCount} Policies Active</div>
+                  <div className={styles.aiPillLabel}>Policy Checks</div>
+                  <div className={styles.aiPillValue}>{activePolicyCount} Active Policy Cards</div>
                 </div>
                 <div className={styles.aiPill}>
-                  <div className={styles.aiPillLabel}>candidate_detection</div>
-                  <div className={styles.aiPillValue} style={{ color: '#1E40AF' }}>Tone &bull; Superlatives &bull; Claims</div>
+                  <div className={styles.aiPillLabel}>Evidence Requirement</div>
+                  <div className={styles.aiPillValue} style={{ color: 'var(--brand-forest)' }}>Every finding links to a source</div>
                 </div>
               </div>
             )}
@@ -520,18 +527,19 @@ export default function ScanWorkspacePage() {
             <button
               type="button"
               className={styles.scanBtn}
+              data-tour="workspace-scan-btn"
               onClick={handleExecuteScan}
               disabled={scanning}
             >
               {scanning ? (
                 <>
                   <RefreshCw size={18} className="animate-spin" />
-                  <span>Scanning Blueprint...</span>
+                  <span>Evaluating Draft...</span>
                 </>
               ) : (
                 <>
                   <Shield size={18} />
-                  <span>Scan Draft for Compliance</span>
+                  <span>Review Draft for Findings</span>
                 </>
               )}
             </button>
@@ -551,16 +559,16 @@ export default function ScanWorkspacePage() {
           </div>
         </div>
 
-        {/* Right Column: Interactive Findings & Evidence Receipts */}
-        <div className={styles.resultsCard}>
+        {/* Right Column: Interactive Findings & Source Evidence */}
+        <div className={styles.resultsCard} data-tour="workspace-findings">
           {!hasScanned && (
             <div className={styles.emptyState}>
               <div className={styles.emptyIcon}>
                 <Shield size={28} />
               </div>
-              <h3 className={styles.emptyTitle}>Ready to Audit Content</h3>
+              <h3 className={styles.emptyTitle}>Ready to review content</h3>
               <p className={styles.emptyDesc}>
-                Click <strong>Snippet A</strong> or <strong>Snippet B</strong> above, then hit <strong>Scan Draft</strong> to see real-time evidence receipts.
+                Load a sample campaign above or add your own draft, then choose <strong>Review Draft</strong> to see findings and source evidence.
               </p>
             </div>
           )}
@@ -577,12 +585,12 @@ export default function ScanWorkspacePage() {
                   {isCompliant ? (
                     <>
                       <CheckCircle2 size={20} color="#10b981" />
-                      <span>Draft Compliant — Ready for Review</span>
+                      <span>Review Complete: Passed All Active Checks</span>
                     </>
                   ) : (
                     <>
                       <AlertTriangle size={20} color="#f43f5e" />
-                      <span>{blockerCount} Blocker{blockerCount > 1 ? 's' : ''} Detected</span>
+                      <span>Review Complete: {blockerCount} Blocker{blockerCount > 1 ? 's' : ''} &bull; {warningCount} Warning{warningCount === 1 ? '' : 's'}</span>
                     </>
                   )}
                 </div>
@@ -592,10 +600,10 @@ export default function ScanWorkspacePage() {
                     {findings.length} Total Finding{findings.length === 1 ? '' : 's'}
                   </span>
                   <span className={styles.metricPill} style={{ color: '#10b981' }}>
-                    100% Citations Verified
+                    100% Sources Linked
                   </span>
                   <span className={styles.metricPill} style={{ fontSize: '0.7rem', color: '#38bdf8' }}>
-                    Engine: {engineSource === 'fastapi_backend' ? 'FastAPI Service' : 'Blueprint Engine'}
+                    Active Governance Rules
                   </span>
                 </div>
               </div>
@@ -605,7 +613,7 @@ export default function ScanWorkspacePage() {
                 <div className={styles.highlightHeader}>
                   <span className={styles.highlightTitle}>Live Evidence Highlighting</span>
                   <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                    Click highlight to inspect receipt
+                    Click highlight to inspect source evidence
                   </span>
                 </div>
                 <div className={styles.highlightContent}>
@@ -643,7 +651,7 @@ export default function ScanWorkspacePage() {
 
                       <div className={styles.verifiedBadge}>
                         <Shield size={12} />
-                        <span>Evidence Verified</span>
+                        <span>Source Linked</span>
                       </div>
                     </div>
 
@@ -659,7 +667,7 @@ export default function ScanWorkspacePage() {
                     <div className={styles.quoteBox}>
                       <div className={styles.quoteLabel}>
                         <Quote size={11} />
-                        <span>Verbatim Policy Receipt (&ldquo;No receipt, no flag&rdquo;)</span>
+                        <span>Source Evidence: Verbatim Policy Excerpt</span>
                       </div>
                       <p className={styles.quoteText}>&ldquo;{f.source_quote}&rdquo;</p>
                     </div>
@@ -667,7 +675,7 @@ export default function ScanWorkspacePage() {
                     {/* Suggested Fix Row with 1-Click Apply */}
                     <div className={styles.fixRow}>
                       <div className={styles.fixText}>
-                        Fix: <strong>{f.suggested_fix}</strong>
+                        Suggested Correction: <strong>{f.suggested_fix}</strong>
                       </div>
 
                       {f.category === 'terminology' && (
@@ -701,10 +709,10 @@ export default function ScanWorkspacePage() {
                 <div className={styles.nextActionCard}>
                   <div className={styles.nextActionText}>
                     <div className={styles.nextActionTitle}>
-                      Draft Approved for Human Review
+                      Draft Cleared for Review Gate
                     </div>
                     <div className={styles.nextActionDesc}>
-                      Zero blockers found. Ready to submit to Reviewer Gate for official cryptographic Content Passport minting.
+                      Zero blockers found. Ready to submit to Review Gate for authorised reviewer approval and Content Passport creation.
                     </div>
                   </div>
                   <Link

@@ -82,7 +82,7 @@ export default function BrandPassportPage() {
             <line x1="12" y1="8" x2="12.01" y2="8" />
           </svg>
           <span>
-            Brand Passport aggregates approved brand identity rules to power the compliance rules engine.
+            Brand Guidelines aggregate approved voice, tone, and identity rules to power the review engine.
           </span>
         </div>
         <div className={styles.actionButtons}>

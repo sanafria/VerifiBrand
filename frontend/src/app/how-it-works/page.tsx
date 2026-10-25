@@ -115,7 +115,7 @@ export default function HowItWorksPage() {
               VerifiBrand combines deterministic rule matching (date expirations, prohibited vocabulary, discount caps) with AI-assisted linguistic analysis. AI responses are strictly treated as <em>candidate findings</em>—never final, unchallengeable decisions.
             </p>
             <div style={{ background: '#F8F5EE', border: '1px solid var(--border-light)', padding: '10px 14px', borderRadius: 6, fontSize: '0.85rem', color: 'var(--brand-navy)' }}>
-              <strong>Pipeline:</strong> Permission validation &rarr; Policy retrieval &rarr; Deterministic checks &rarr; Assisted analysis.
+              <strong>Pipeline:</strong> Permission check &rarr; Relevant sources &rarr; Rule checks &rarr; Assisted review.
             </div>
           </div>
         </div>
@@ -190,7 +190,7 @@ export default function HowItWorksPage() {
               AI never publishes autonomously. An authorized human reviewer inspects the draft, evaluates any open findings or creator explanations, and records a definitive decision: <strong>APPROVED</strong>, <strong>CHANGES REQUESTED</strong>, or <strong>APPROVED WITH OVERRIDE</strong> (recording a mandatory justification).
             </p>
             <div style={{ background: '#F8F5EE', border: '1px solid var(--border-light)', padding: '10px 14px', borderRadius: 6, fontSize: '0.85rem', color: 'var(--brand-navy)' }}>
-              <strong>Governance guarantee:</strong> No content is approved without a named reviewer and timestamped audit entry.
+              <strong>Governance record:</strong> No content is approved without a named reviewer and timestamped audit entry.
             </div>
           </div>
         </div>
@@ -209,13 +209,13 @@ export default function HowItWorksPage() {
           </div>
           <div>
             <h2 style={{ fontSize: '1.3rem', color: 'var(--brand-navy)', marginBottom: 8 }}>
-              Content Passport &amp; traceable audit record
+              Approval record for the reviewed version
             </h2>
             <p style={{ color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: 14 }}>
-              Upon approval, VerifiBrand generates a <strong>Content Passport</strong>. This verifiable certificate details the content snapshot, policy versions utilized, reviewer credentials, and cryptographic fingerprint—giving distribution channels proof of compliance before publication.
+              Upon approval, VerifiBrand generates a <strong>Content Passport</strong>. This shareable approval record details the content snapshot, policy versions utilized, reviewer credentials, and integrity fingerprint—giving distribution channels trace of approval before publication.
             </p>
             <div style={{ background: '#F8F5EE', border: '1px solid var(--border-light)', padding: '10px 14px', borderRadius: 6, fontSize: '0.85rem', color: 'var(--brand-navy)' }}>
-              <strong>Verification:</strong> Exportable certificate seal, verifiable SHA-256 fingerprint, and audit trail link.
+              <strong>Traceability:</strong> Exportable approval seal, integrity fingerprint, and audit trail link.
             </div>
           </div>
         </div>

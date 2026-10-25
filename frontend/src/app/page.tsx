@@ -47,9 +47,9 @@ export default function HomePage() {
             <div className={styles.mockupTabs}>
               <span style={{ fontWeight: 600, color: 'var(--brand-navy)' }}>Summer Membership Campaign</span>
               <span>&bull;</span>
-              <span>Draft v1</span>
-              <span>&bull;</span>
-              <span>Creator: Sana</span>
+              <span style={{ fontSize: '0.74rem', background: '#FFF5D9', color: '#8A5A00', padding: '1px 6px', borderRadius: 4, fontWeight: 700 }}>
+                Sample preview
+              </span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.8rem', color: 'var(--status-review-text)', background: 'var(--status-review-bg)', padding: '3px 10px', borderRadius: 4, fontWeight: 600 }}>
               <Clock size={12} />
@@ -328,7 +328,7 @@ export default function HomePage() {
               <span className={styles.stateLabel} style={{ background: 'var(--status-approved-bg)', color: 'var(--status-approved-text)' }}>
                 APPROVED
               </span>
-              <div className={styles.stateDesc}>Certified for publication with Content Passport</div>
+              <div className={styles.stateDesc}>Approved for publication with Content Passport</div>
             </div>
 
             <div className={styles.stateCard}>
@@ -358,7 +358,7 @@ export default function HomePage() {
             <div className={styles.featureIcon}><BookOpen size={20} /></div>
             <h3 className={styles.featureTitle}>Policy Cards</h3>
             <p className={styles.featureDesc}>
-              Turn long guidelines and PDFs into searchable, versioned decisions that evaluate drafts instantly.
+              Turn long guidelines and PDFs into searchable, versioned decisions that evaluate drafts against active Policy Cards.
             </p>
           </div>
 
@@ -398,7 +398,7 @@ export default function HomePage() {
             <div className={styles.featureIcon}><UserCheck size={20} /></div>
             <h3 className={styles.featureTitle}>Review Workflow</h3>
             <p className={styles.featureDesc}>
-              Assign, comment, revise, approve, and retain the complete decision history in an immutable record.
+              Assign, comment, revise, approve, and retain the decision history for review and audit.
             </p>
           </div>
         </div>

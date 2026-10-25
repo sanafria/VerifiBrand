@@ -109,14 +109,14 @@ function PolicyLibraryContent() {
         <div className={styles.titleArea}>
           <h1 className={styles.title}>Brand Policy Library</h1>
           <p className={styles.subtitle}>
-            Authoritative brand governance repository. Every rule enforces strict evidence verification (&ldquo;No receipt, no flag&rdquo;).
+            Authoritative brand governance repository. Every active rule can be linked to source evidence.
           </p>
         </div>
 
         <div className={styles.storeStatusBadge}>
           <span className={styles.dotGreen} />
           <span>
-            {dataSource === 'backend_api' ? 'FastAPI Backend Connected' : 'Local Dev Store (REST Adapter Ready)'}
+            {dataSource === 'backend_api' ? 'FastAPI Service Connected' : 'Policy Repository &bull; Active Rules Enforced'}
           </span>
           <button type="button" className={styles.btnReset} onClick={handleResetData} title="Reset to official seed data">
             Reset Seed Data
@@ -153,13 +153,13 @@ function PolicyLibraryContent() {
 
       {/* Policy Grid */}
       {loading ? (
-        <div className={styles.loadingSkeleton}>
+        <div className={styles.loadingSkeleton} data-tour="policies-grid">
           <div className={styles.skeletonCard} />
           <div className={styles.skeletonCard} />
           <div className={styles.skeletonCard} />
         </div>
       ) : policies.length > 0 ? (
-        <div className={styles.grid}>
+        <div className={styles.grid} data-tour="policies-grid">
           {policies.map((policy) => (
             <PolicyCardItem
               key={policy.id}

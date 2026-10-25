@@ -29,9 +29,24 @@ export const Navbar: React.FC = () => {
             </div>
             <span>VerifiBrand</span>
           </Link>
-          <span className={styles.trustTag}>
-            AI-assisted findings · Human decisions
-          </span>
+          {isPublicRoute ? (
+            <span className={styles.trustTag}>
+              AI-assisted findings · Human decisions
+            </span>
+          ) : (
+            <span style={{
+              background: '#FFF5D9',
+              color: '#6B4E00',
+              border: '1px solid #E8C76A',
+              padding: '2px 8px',
+              borderRadius: 4,
+              fontSize: '0.68rem',
+              fontWeight: 800,
+              letterSpacing: '0.04em'
+            }}>
+              DEMO WORKSPACE &bull; SAMPLE DATA
+            </span>
+          )}
         </div>
 
         {isPublicRoute ? (
@@ -60,7 +75,7 @@ export const Navbar: React.FC = () => {
           </nav>
         ) : (
           /* Workspace Product Navigation */
-          <nav className={styles.navLinks} aria-label="Workspace Navigation">
+          <nav className={styles.navLinks} aria-label="Workspace Navigation" data-tour="nav-tabs">
             <Link
               href="/workspace"
               className={`${styles.navLink} ${pathname === '/workspace' ? styles.navLinkActive : ''}`}

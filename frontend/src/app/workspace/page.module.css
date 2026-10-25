@@ -81,13 +81,13 @@
   font-size: 1.85rem;
   font-weight: 800;
   letter-spacing: -0.03em;
-  color: var(--text-primary);
+  color: #FFFFFF;
   margin-bottom: 8px;
 }
 
 .desc {
   font-size: 0.95rem;
-  color: var(--text-secondary);
+  color: #E2E8F0;
   line-height: 1.55;
   max-width: 900px;
 }
@@ -99,14 +99,14 @@
   gap: 10px;
   margin-top: 18px;
   padding-top: 16px;
-  border-top: 1px solid var(--border-subtle);
+  border-top: 1px solid rgba(255, 255, 255, 0.15);
   flex-wrap: wrap;
 }
 
 .navRibbonLabel {
   font-size: 0.75rem;
   font-weight: 600;
-  color: var(--text-muted);
+  color: #94A3B8;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   margin-right: 4px;
@@ -118,18 +118,18 @@
   gap: 5px;
   padding: 5px 12px;
   border-radius: var(--radius-sm);
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid var(--border-subtle);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.18);
   font-size: 0.8rem;
   font-weight: 600;
-  color: var(--text-secondary);
+  color: #F1F5F9;
   transition: all 0.2s ease;
 }
 
 .ribbonLink:hover {
-  color: var(--text-primary);
-  background: var(--bg-surface);
-  border-color: var(--border-light);
+  color: #FFFFFF;
+  background: rgba(255, 255, 255, 0.18);
+  border-color: rgba(255, 255, 255, 0.35);
 }
 
 /* Main Grid Layout */
@@ -793,7 +793,7 @@
 .quoteText {
   font-size: 0.84rem;
   font-style: italic;
-  color: var(--text-secondary);
+  color: #F8FAFC;
   line-height: 1.45;
 }
 

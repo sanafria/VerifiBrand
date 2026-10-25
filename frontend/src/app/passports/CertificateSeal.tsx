@@ -98,7 +98,7 @@ export const CertificateSeal: React.FC<CertificateSealProps> = ({ verified, size
             textAnchor="middle"
           >
             {verified
-              ? '• VERIFIBRAND • CERTIFIED AUTHENTIC •'
+              ? '• VERIFIBRAND • APPROVAL VERIFIED •'
               : '• INTEGRITY BREACH • TAMPER DETECTED •'}
           </textPath>
         </text>
@@ -163,7 +163,7 @@ export const CertificateSeal: React.FC<CertificateSealProps> = ({ verified, size
           fontWeight="800"
           letterSpacing="1"
         >
-          {verified ? 'VERIFIED OK' : 'MISMATCH'}
+          {verified ? 'RECORD VERIFIED' : 'MISMATCH'}
         </text>
       </svg>
     </div>
