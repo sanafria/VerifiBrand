@@ -74,7 +74,7 @@ export interface PassportRecord {
 
 const STORAGE_KEY_QUEUE = 'brandledger_review_queue_v1';
 const STORAGE_KEY_PASSPORTS = 'brandledger_passports_v2';
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL !== undefined ? process.env.NEXT_PUBLIC_API_URL : (typeof window !== 'undefined' ? '' : 'http://127.0.0.1:8000');
 
 const INITIAL_QUEUE_DATA: ReviewQueueItem[] = [
   {

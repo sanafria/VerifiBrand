@@ -18,7 +18,7 @@ import { INITIAL_POLICY_CARDS, INITIAL_BRAND_PROFILES } from '../mockData.ts';
 const STORAGE_KEY_POLICIES = 'brandledger_policies_v1';
 const STORAGE_KEY_BRANDS = 'brandledger_brands_v1';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL !== undefined ? process.env.NEXT_PUBLIC_API_URL : (typeof window !== 'undefined' ? '' : 'http://127.0.0.1:8000');
 
 class PolicyClient {
   private inMemoryPolicies: PolicyCard[] = [...INITIAL_POLICY_CARDS];

@@ -60,7 +60,7 @@ function ReviewGateContent() {
     }
 
     // Ping FastAPI health
-    const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
+    const apiBase = process.env.NEXT_PUBLIC_API_URL !== undefined ? process.env.NEXT_PUBLIC_API_URL : (typeof window !== 'undefined' ? '' : 'http://127.0.0.1:8000');
     fetch(`${apiBase}/health`, { method: 'GET' })
       .then(res => setBackendConnected(res.ok))
       .catch(() => setBackendConnected(false));
