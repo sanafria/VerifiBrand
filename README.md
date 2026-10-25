@@ -1,8 +1,34 @@
-# BrandLedger
+# VerifiBrand (formerly BrandLedger)
 
-> **Verifiable Brand Compliance & Content Passporting**  
+> **Verifiable Brand Compliance & Cryptographic Content Passporting**  
+> 🌐 **Live Website**: [https://verifibrand-9h26.vercel.app/](https://verifibrand-9h26.vercel.app/)  
 > *Future Stack Hackathon Submission*  
-> *Status: Proof-of-Concept / Hackathon Prototype (Not for Production Use)*
+> *Status: Proof-of-Concept / Hackathon Prototype*
+
+---
+
+## ⚡ What VerifiBrand Does (In Short)
+
+**VerifiBrand** is an enterprise brand governance platform that replaces subjective, vague creative reviews with **verifiable, audit-backed compliance** and **tamper-proof cryptographic certificates**.
+
+1. **Ingests Marketing Collateral**: Ingests campaign text, banners, PDFs, and images with automatic dual-layer extraction (PyMuPDF + Tesseract OCR).
+2. **"No Receipt, No Flag" Scanning**: Enforces deterministic brand policies (terminology, offer dates, numerical facts, claims). Scans cannot flag an asset without providing a verifiable "receipt": the exact policy ID, active version snapshot, and verbatim quote from the rulebook.
+3. **Role-Enforced Human Approval**: Prohibits creator self-approval via separation-of-duties review gating (`/review`).
+4. **Cryptographic Content Passports**: Generates an immutable digital certificate with a canonical **SHA-256 cryptographic fingerprint** (`/passports`), allowing brands, agencies, and publishers to verify that content has not been altered post-approval.
+
+---
+
+## 🚀 Recent Updates & New Capabilities
+
+- **🌐 Live Production Deployment**: Deployed on Vercel at [https://verifibrand-9h26.vercel.app/](https://verifibrand-9h26.vercel.app/) with edge routing and simulated failover resilience.
+- **✨ Complete Platform Rebrand**: Transitioned identity to **VerifiBrand** across all views, metadata, icons, and navigation with a refined navy & gold palette.
+- **🧭 Interactive Guided Tour**: Step-by-step element spotlight tour (`GuidedTour.tsx`) guiding judges and users through the scan, review, and passport issuance pipeline.
+- **📑 New Public Overview Pages**:
+  - **[How It Works](https://verifibrand-9h26.vercel.app/how-it-works)**: Interactive 4-step compliance pipeline visualization.
+  - **[Security & Trust](https://verifibrand-9h26.vercel.app/security)**: Cryptographic integrity guarantees, SHA-256 proof generation, and responsible governance.
+  - **[Features](https://verifibrand-9h26.vercel.app/features)**: Comprehensive enterprise capability matrix.
+  - **[Sample Review](https://verifibrand-9h26.vercel.app/demo-preview)**: Instant pre-populated marketing compliance evaluation demo.
+- **🐳 Full-Stack Containerization**: Added multi-stage `Dockerfile` configurations for both frontend and backend alongside Docker Compose orchestrator.
 
 ---
 
@@ -16,17 +42,17 @@ This disconnect creates:
 - **Accidental trademark, terminology, and legal violations**.
 - **Zero cryptographic auditability** once assets are handed off to downstream publishers or advertising networks.
 
-### The BrandLedger Solution
-BrandLedger solves this friction by establishing a single, non-negotiable platform tenet:
+### The VerifiBrand Solution
+VerifiBrand solves this friction by establishing a single, non-negotiable platform tenet:
 
 > **"No receipt, no flag."**
 
-In BrandLedger, automated compliance scans cannot flag any content unless they cite:
+In VerifiBrand, automated compliance scans cannot flag any content unless they cite:
 1. The **exact active policy card ID**.
 2. The **immutable policy version snapshot** evaluated at scan time.
 3. A **literal, verbatim source quotation** from the approved brand rulebook.
 
-Once compliant content is formally approved by a human reviewer, BrandLedger issues an immutable **Content Passport**—a digital certificate anchored by a canonical **SHA-256 cryptographic fingerprint** that guarantees end-to-end tamper detection.
+Once compliant content is formally approved by a human reviewer, VerifiBrand issues an immutable **Content Passport**—a digital certificate anchored by a canonical **SHA-256 cryptographic fingerprint** that guarantees end-to-end tamper detection.
 
 ---
 
@@ -304,14 +330,22 @@ If you prefer running Python and Next.js directly on your host machine for live 
        ```
 
 5. **Available Application Routes**:
-   - **Landing Page & Architecture Overview**: [http://localhost:3000](http://localhost:3000)
-   - **Scan Workspace (Upload, OCR & Scan)**: [http://localhost:3000/workspace](http://localhost:3000/workspace)
-   - **Policy Library & Governance**: [http://localhost:3000/policies](http://localhost:3000/policies)
-   - **Brand Passport (Guardrails & Identity)**: [http://localhost:3000/brand-passport](http://localhost:3000/brand-passport)
-   - **Review Gateway (Separation of Duties)**: [http://localhost:3000/review](http://localhost:3000/review)
-   - **Content Passports & Tamper Simulator**: [http://localhost:3000/passports](http://localhost:3000/passports)
-   - **Audit Trail**: [http://localhost:3000/audit](http://localhost:3000/audit)
-   - **Governance Insights & Analytics**: [http://localhost:3000/insights](http://localhost:3000/insights)
+
+| Page / Capability | Localhost (Dev) | Live Production (Vercel) | Description |
+|---|---|---|---|
+| **Landing Page** | [localhost:3000](http://localhost:3000) | [/](https://verifibrand-9h26.vercel.app/) | Hero, platform pillars & architecture overview |
+| **Guided Tour** | [localhost:3000/?tour=true](http://localhost:3000/?tour=true) | [/?tour=true](https://verifibrand-9h26.vercel.app/?tour=true) | Interactive element spotlight demo walkthrough |
+| **How It Works** | [localhost:3000/how-it-works](http://localhost:3000/how-it-works) | [/how-it-works](https://verifibrand-9h26.vercel.app/how-it-works) | 4-step compliance pipeline visualization |
+| **Security & Trust** | [localhost:3000/security](http://localhost:3000/security) | [/security](https://verifibrand-9h26.vercel.app/security) | Cryptographic SHA-256 passports & responsible AI |
+| **Features Matrix** | [localhost:3000/features](http://localhost:3000/features) | [/features](https://verifibrand-9h26.vercel.app/features) | Enterprise feature checklist and breakdown |
+| **Sample Review** | [localhost:3000/demo-preview](http://localhost:3000/demo-preview) | [/demo-preview](https://verifibrand-9h26.vercel.app/demo-preview) | Instant pre-populated marketing compliance demo |
+| **Scan Workspace** | [localhost:3000/workspace](http://localhost:3000/workspace) | [/workspace](https://verifibrand-9h26.vercel.app/workspace) | Upload assets, OCR ingestion & live scan findings |
+| **Policy Library** | [localhost:3000/policies](http://localhost:3000/policies) | [/policies](https://verifibrand-9h26.vercel.app/policies) | Authoritative brand rules & version management |
+| **Brand Passport** | [localhost:3000/brand-passport](http://localhost:3000/brand-passport) | [/brand-passport](https://verifibrand-9h26.vercel.app/brand-passport) | Brand voice guidelines & color palette tokens |
+| **Review Gateway** | [localhost:3000/review](http://localhost:3000/review) | [/review](https://verifibrand-9h26.vercel.app/review) | Human approval gate (creator self-approval blocked) |
+| **Content Passports** | [localhost:3000/passports](http://localhost:3000/passports) | [/passports](https://verifibrand-9h26.vercel.app/passports) | Immutable cryptographic certificates & tamper test |
+| **Audit Trail** | [localhost:3000/audit](http://localhost:3000/audit) | [/audit](https://verifibrand-9h26.vercel.app/audit) | Immutable verification log & receipt history |
+| **Governance Insights**| [localhost:3000/insights](http://localhost:3000/insights) | [/insights](https://verifibrand-9h26.vercel.app/insights) | Risk scores, violation distributions & analytics |
 
 ---
 
