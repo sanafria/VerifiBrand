@@ -16,7 +16,7 @@ export const VoiceToneSection: React.FC<VoiceToneSectionProps> = ({ brand }) => 
         <div className={styles.titleArea}>
           <h2 id="voice-pillars-title" className={styles.title}>Brand Voice &amp; Tone Architecture</h2>
           <p className={styles.subtitle}>
-            Principles governed by Member 4 AI tone validation and deterministic editorial policies.
+            Principles governed by AI tone validation and deterministic editorial policies.
           </p>
         </div>
         <Link href="/policies?cat=tone" className={styles.btnLink}>

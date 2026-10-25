@@ -1,4 +1,4 @@
-// ─── BrandLedger Mock Data Store ───
+// ─── VerifiBrand Mock Data Store ───
 // All data for the demo. In production, this would come from Supabase.
 
 export type CardType = 'offer' | 'term' | 'fact' | 'asset' | 'claim' | 'tone' | 'accessibility';

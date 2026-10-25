@@ -70,7 +70,7 @@ export default function Sidebar() {
                   color: 'var(--color-charcoal-800)',
                   lineHeight: 1.1,
                 }}>
-                  BrandLedger
+                  VerifiBrand
                 </div>
                 <div style={{ fontSize: 11, color: 'var(--color-charcoal-400)', letterSpacing: '0.05em' }}>
                   CONTENT GOVERNANCE

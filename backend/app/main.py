@@ -81,7 +81,7 @@ def health_check() -> dict[str, str]:
 
 @app.post("/api/scan", response_model=ScanDraftResponse)
 def api_scan_draft(request: ScanDraftRequest) -> ScanDraftResponse:
-    """Scan draft endpoint integrating Zynab's policy engine service."""
+    """Scan draft endpoint integrating the deterministic policy engine service."""
     try:
         findings = scan_draft(
             content_text=request.content_text,

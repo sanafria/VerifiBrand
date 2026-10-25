@@ -5,8 +5,8 @@ import { DemoToolbar } from '@/components/layout/DemoToolbar';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Brand Ledger — Policy Library & Brand Passport',
-  description: 'Enterprise brand governance platform enforcing deterministic rule checks and verifiable source evidence. "No receipt, no flag."',
+  title: 'VerifiBrand — Pre-Publication Brand Review Workspace',
+  description: 'VerifiBrand checks the content. Your people make the decision. Verify drafts against approved brand guidelines, facts, terminology, and assets before publication.',
 };
 
 export default function RootLayout({

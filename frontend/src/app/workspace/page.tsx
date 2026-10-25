@@ -88,7 +88,7 @@ export default function ScanWorkspacePage() {
     setScanDate('2026-04-15');
     setOcrInfo({
       fileName: 'img_clear_offer.png',
-      method: 'PyMuPDF + Tesseract OCR (Member 5)',
+      method: 'PyMuPDF + Tesseract OCR',
       resolution: '300 DPI • Contrast 88%',
     });
     showToast('Loaded Synthetic OCR Banner Extraction');
@@ -100,7 +100,7 @@ export default function ScanWorkspacePage() {
 
     setOcrInfo({
       fileName: file.name,
-      method: 'PyMuPDF / Tesseract OCR (Member 5)',
+      method: 'PyMuPDF / Tesseract OCR',
       resolution: '300 DPI • Contrast 92%',
     });
 
@@ -133,7 +133,7 @@ export default function ScanWorkspacePage() {
     setFindings([]);
 
     try {
-      // 1. Fetch approved Policy Cards from Member 2 repository
+      // 1. Fetch approved Policy Cards from Policy repository
       const policies = await policyClient.getApprovedPoliciesForScan();
 
       // 2. Prepare payload matching ScanDraftRequest
@@ -308,7 +308,7 @@ export default function ScanWorkspacePage() {
       <div className={styles.banner}>
         <div className={styles.headerTop}>
           <span className={styles.teamBadge}>
-            <Cpu size={14} /> Member 1 • Module Ownership: Sana Fria
+            <Cpu size={14} /> Scan Workspace • Pre-Publication Compliance Engine
           </span>
           <div className={styles.tenetBadge}>
             <span className={styles.pulseDot} />
@@ -433,7 +433,7 @@ export default function ScanWorkspacePage() {
             </select>
           </div>
 
-          {/* File Upload / OCR Dropzone (Member 5 Integration) */}
+          {/* File Upload / OCR Dropzone */}
           <label className={styles.dropzone}>
             <input
               type="file"
@@ -475,14 +475,14 @@ export default function ScanWorkspacePage() {
             </div>
           </div>
 
-          {/* AdaptionLabs AI Blueprint & Hallucination Mitigation Card */}
+          {/* AI-Assisted Analysis & Governance Checks Card (Section 17) */}
           <div className={styles.aiCard}>
             <div className={styles.aiHeader}>
               <div className={styles.aiTitleGroup}>
-                <Sparkles size={16} color="#c084fc" />
-                <span className={styles.aiTitle}>AdaptionLabs AI Blueprint & Governance Engine</span>
+                <Sparkles size={16} color="var(--brand-gold)" />
+                <span className={styles.aiTitle}>AI-Assisted Analysis &amp; Governance Engine</span>
               </div>
-              <label className={styles.toggleSwitch} title="Toggle AdaptionLabs AI Blueprint evaluation">
+              <label className={styles.toggleSwitch} title="Toggle AI-assisted analysis">
                 <input
                   type="checkbox"
                   checked={adaptionLabsAi}
@@ -493,24 +493,22 @@ export default function ScanWorkspacePage() {
             </div>
 
             <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: 1.45 }}>
-              Feeds approved Policy Cards directly as blueprint constraints. Enforces BrandLedger&apos;s <strong>&ldquo;No receipt, no flag&rdquo;</strong> tenet by strictly suppressing ungrounded AI hallucinations.
+              AI-assisted findings. Human-controlled decisions. Feeds active Policy Cards as constraints, suppressing ungrounded suggestions and linking every flag to source evidence.
             </p>
 
             {adaptionLabsAi && (
               <div className={styles.aiPillsGrid}>
                 <div className={styles.aiPill}>
-                  <div className={styles.aiPillLabel}>brand_controls.blueprint</div>
+                  <div className={styles.aiPillLabel}>provider_adapter</div>
+                  <div className={styles.aiPillValue} style={{ color: 'var(--brand-forest)' }}>Connected · Server-Side</div>
+                </div>
+                <div className={styles.aiPill}>
+                  <div className={styles.aiPillLabel}>policy_constraints</div>
                   <div className={styles.aiPillValue}>{activePolicyCount} Policies Active</div>
                 </div>
                 <div className={styles.aiPill}>
-                  <div className={styles.aiPillLabel}>hallucination_mitigation</div>
-                  <div className={styles.aiPillValue} style={{ color: hallucinationMitigation ? '#34d399' : '#f87171' }}>
-                    {hallucinationMitigation ? 'ENABLED (Zero-Hallucination)' : 'DISABLED'}
-                  </div>
-                </div>
-                <div className={styles.aiPill}>
-                  <div className={styles.aiPillLabel}>safety_categories</div>
-                  <div className={styles.aiPillValue} style={{ color: '#38bdf8' }}>Tone • Superlatives • Claims</div>
+                  <div className={styles.aiPillLabel}>candidate_detection</div>
+                  <div className={styles.aiPillValue} style={{ color: '#1E40AF' }}>Tone &bull; Superlatives &bull; Claims</div>
                 </div>
               </div>
             )}

@@ -1,5 +1,5 @@
 /**
- * BrandLedger - Member 3: Review & Content Passport API Client
+ * VerifiBrand - Review & Content Passport API Client
  * 
  * Provides an enterprise-grade client interface for:
  * 1. Human reviewer approval & rejection gateway (POST /api/reviews)
@@ -73,7 +73,7 @@ export interface PassportRecord {
 }
 
 const STORAGE_KEY_QUEUE = 'brandledger_review_queue_v1';
-const STORAGE_KEY_PASSPORTS = 'brandledger_passports_v1';
+const STORAGE_KEY_PASSPORTS = 'brandledger_passports_v2';
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
 
 const INITIAL_QUEUE_DATA: ReviewQueueItem[] = [
@@ -82,7 +82,7 @@ const INITIAL_QUEUE_DATA: ReviewQueueItem[] = [
     draftId: 'c1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d',
     scanId: 's1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d',
     title: 'Summer Member Access Campaign (Snippet B)',
-    author: 'Sana Fria (Marketing Creator)',
+    author: 'Alex Kim (Marketing Creator)',
     submittedAt: '2026-07-01 14:30 UTC',
     status: 'pending',
     content: 'Our Members can access standard pricing today!',
@@ -168,9 +168,178 @@ export async function computeCanonicalSha256(obj: Record<string, any>): Promise<
   return `${hex}a855f738bdf810b9819f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822`.slice(0, 64);
 }
 
+export const SEED_DEFAULT_PASSPORTS: Record<string, PassportRecord> = {
+  pass_demo_verified_001: {
+    id: 'pass_demo_verified_001',
+    draft_id: 'd8f921a0-4000-8000-000000000001',
+    scan_id: 's8f921a0-4000-8000-000000000001',
+    review_id: 'rev_20261024_001',
+    passport_hash: '3a8f5b49e19d7c62b508f7aa19ef84a1236894d03e9c708fa8d16723b49e01f2',
+    status: 'valid',
+    created_at: '2026-10-24T14:32:00.000Z',
+    hash_verified: true,
+    metadata_snapshot: {
+      draft_title: 'Summer Membership Campaign',
+      version: 4,
+      decision: 'approved_with_override',
+      status_label: 'Approved with override',
+      reviewer_name: 'Haany',
+      reviewer_role: 'Senior Compliance Officer',
+      reviewer_id: 'rev-haany-01',
+      comment: 'Partner-specific campaign with supporting evidence attached. Verified against active Q3 promotional schedule and legal clearance.',
+      issued_at: '2026-10-24T14:32:00.000Z',
+      last_verified_at: '24 Oct 2026, 14:32 UTC',
+      draft_content: 'Exclusive Summer Access: Eligible Members enjoy verified tier pricing and early preview benefits starting today through August 31st across all partner lounges.',
+      findings_summary: [
+        {
+          title: 'Unsupported promotional claim',
+          status: 'resolved',
+          status_label: 'Resolved',
+          policy: 'Promotional Claims v2.1',
+          category: 'Claims & Legal',
+          detail: 'Detected absolute claim "guaranteed lowest rates anywhere". Adjusted to fact-checked phrasing "verified tier pricing".'
+        },
+        {
+          title: 'Expired promotional offer',
+          status: 'resolved',
+          status_label: 'Resolved',
+          policy: 'Fact: Offer Register #014',
+          category: 'Product Facts',
+          detail: 'Referenced outdated June early-bird code. Updated to active August 31st promo window per commercial register.'
+        },
+        {
+          title: 'Audience terminology variance',
+          status: 'override',
+          status_label: 'Approved with override',
+          policy: 'Policy: Audience Language v1.4',
+          category: 'Brand Terminology',
+          detail: 'Partner-specific term "partner lounges" approved by reviewer under Q3 co-marketing agreement Annex C.'
+        }
+      ],
+      review_stats: {
+        total_findings: 3,
+        suggestions_applied: 2,
+        approved_with_override: 1,
+      },
+      evidence_used: [
+        { name: 'Promotional Claims Policy', version: 'v2.1', type: 'Policy Standard', authority: 'Legal & Regulatory' },
+        { name: 'Marketing Claims Register', version: 'Ref #014', type: 'Fact Register', authority: 'Verified Product Specs' },
+        { name: 'Approved Terminology Standard', version: 'v1.4', type: 'Brand Guideline', authority: 'Brand Voice Guidelines' },
+        { name: 'Primary Logo & Asset Guide', version: 'v3.2', type: 'Visual Asset', authority: 'Global Design System' }
+      ],
+      policy_versions_applied: [
+        { policy_card_id: 'pol_promotional_claims', policy_version: '2.1' },
+        { policy_card_id: 'reg_marketing_claims_014', policy_version: '1.0' },
+        { policy_card_id: 'pol_audience_language', policy_version: '1.4' },
+        { policy_card_id: 'ast_primary_logo', policy_version: '3.2' },
+      ],
+    }
+  },
+  pass_enterprise_q3_002: {
+    id: 'pass_enterprise_q3_002',
+    draft_id: 'd9b1c2a3-4000-8000-000000000002',
+    scan_id: 's9b1c2a3-4000-8000-000000000002',
+    review_id: 'rev_20261023_002',
+    passport_hash: '9e7b2a41d08c5f3e2b19a7408d62c1409f87135e82b49c0d1e57a394c8b21067',
+    status: 'valid',
+    created_at: '2026-10-23T11:15:00.000Z',
+    hash_verified: true,
+    metadata_snapshot: {
+      draft_title: 'Global Enterprise Q3 Product Launch',
+      version: 2,
+      decision: 'approved',
+      status_label: 'Approved',
+      reviewer_name: 'Sarah Chen',
+      reviewer_role: 'Compliance Director',
+      reviewer_id: 'rev-sarah-02',
+      comment: 'Fully approved. All corporate terminology and claims verified against Enterprise SLA specifications.',
+      issued_at: '2026-10-23T11:15:00.000Z',
+      last_verified_at: '23 Oct 2026, 11:15 UTC',
+      draft_content: 'VerifiBrand Enterprise empowers compliance and creative teams to detect brand deviations in real time with cryptographic audit assurance.',
+      findings_summary: [
+        {
+          title: 'Unverified uptime claim',
+          status: 'resolved',
+          status_label: 'Resolved',
+          policy: 'Enterprise SLA Claims v3.0',
+          category: 'Claims & Legal',
+          detail: 'Adjusted "100% infallible uptime" to "99.99% enterprise SLA guarantee".'
+        },
+        {
+          title: 'Deprecated trademark mention',
+          status: 'resolved',
+          status_label: 'Resolved',
+          policy: 'Trademark Registry v2.0',
+          category: 'Brand Terminology',
+          detail: 'Updated legacy module name to current VerifiBrand Guard naming standard.'
+        }
+      ],
+      review_stats: {
+        total_findings: 2,
+        suggestions_applied: 2,
+        approved_with_override: 0,
+      },
+      evidence_used: [
+        { name: 'Enterprise SLA Policy', version: 'v3.0', type: 'Policy Standard', authority: 'Legal & Product' },
+        { name: 'Trademark Guidelines', version: 'v2.0', type: 'Brand Guideline', authority: 'IP Legal Counsel' },
+        { name: 'Product Capability Register', version: 'v4.1', type: 'Fact Register', authority: 'Engineering Specs' }
+      ],
+      policy_versions_applied: [
+        { policy_card_id: 'pol_enterprise_sla', policy_version: '3.0' },
+        { policy_card_id: 'pol_trademark', policy_version: '2.0' },
+      ],
+    }
+  },
+  pass_partner_summit_003: {
+    id: 'pass_partner_summit_003',
+    draft_id: 'da1b2c3d-4000-8000-000000000003',
+    scan_id: 'sa1b2c3d-4000-8000-000000000003',
+    review_id: 'rev_20261022_003',
+    passport_hash: '48c901e7d23f4b598a10e623c95107e84ab2103f568d7120e98c74a120539b81',
+    status: 'valid',
+    created_at: '2026-10-22T09:40:00.000Z',
+    hash_verified: true,
+    metadata_snapshot: {
+      draft_title: 'Fintech Partner Summit 2026 Announcement',
+      version: 1,
+      decision: 'approved',
+      status_label: 'Approved',
+      reviewer_name: 'Marcus Vance',
+      reviewer_role: 'Brand Governance Lead',
+      reviewer_id: 'rev-marcus-03',
+      comment: 'Approved for global partner distribution and social channels.',
+      issued_at: '2026-10-22T09:40:00.000Z',
+      last_verified_at: '22 Oct 2026, 09:40 UTC',
+      draft_content: 'Join fintech and compliance leaders in Singapore for the annual VerifiBrand Partner Summit, featuring live governance workshops and developer keynotes.',
+      findings_summary: [
+        {
+          title: 'Location venue disclaimer missing',
+          status: 'resolved',
+          status_label: 'Resolved',
+          policy: 'Event Disclosures v1.2',
+          category: 'Compliance',
+          detail: 'Added venue registration notes and accreditation requirements.'
+        }
+      ],
+      review_stats: {
+        total_findings: 1,
+        suggestions_applied: 1,
+        approved_with_override: 0,
+      },
+      evidence_used: [
+        { name: 'Event Compliance Policy', version: 'v1.2', type: 'Policy Standard', authority: 'Corporate Events' },
+        { name: 'International Marketing Guide', version: 'v2.4', type: 'Brand Guideline', authority: 'Global Marketing' }
+      ],
+      policy_versions_applied: [
+        { policy_card_id: 'pol_event_disclosures', policy_version: '1.2' },
+      ],
+    }
+  }
+};
+
 class ReviewClient {
   private queue: ReviewQueueItem[] = [...INITIAL_QUEUE_DATA];
-  private passports: Record<string, PassportRecord> = {};
+  private passports: Record<string, PassportRecord> = { ...SEED_DEFAULT_PASSPORTS };
 
   constructor() {
     this.initStorage();
@@ -192,7 +361,11 @@ class ReviewClient {
 
         const storedPassports = localStorage.getItem(STORAGE_KEY_PASSPORTS);
         if (storedPassports) {
-          this.passports = JSON.parse(storedPassports);
+          const parsed = JSON.parse(storedPassports);
+          this.passports = { ...SEED_DEFAULT_PASSPORTS, ...parsed };
+        } else {
+          this.passports = { ...SEED_DEFAULT_PASSPORTS };
+          localStorage.setItem(STORAGE_KEY_PASSPORTS, JSON.stringify(this.passports));
         }
       } catch (e) {
         console.warn('LocalStorage unavailable, using in-memory state:', e);
@@ -241,7 +414,7 @@ class ReviewClient {
       draftId,
       scanId,
       title: draft.title || 'Scanned Marketing Copy',
-      author: draft.author || 'Sana Fria (Marketing Creator)',
+      author: draft.author || 'Alex Kim (Marketing Creator)',
       submittedAt: new Date().toISOString().replace('T', ' ').slice(0, 19) + ' UTC',
       status: 'pending',
       content: draft.content,
@@ -434,39 +607,39 @@ class ReviewClient {
     }
 
     // 2. Return from local cache with real-time hash verification
-    const record = this.passports[passportId];
+    let record = this.passports[passportId];
     if (!record) {
+      if (SEED_DEFAULT_PASSPORTS[passportId]) {
+        record = { ...SEED_DEFAULT_PASSPORTS[passportId] };
+        record.passport_hash = await computeCanonicalSha256(record.metadata_snapshot);
+        record.hash_verified = true;
+        this.passports[passportId] = record;
+        this.persist();
+        return record;
+      }
+
       // Seed a realistic default passport if requested id matches demo
       if (passportId.startsWith('pass_')) {
-        const mockSnapshot = {
-          comment: 'Approved after verification.',
-          decision: 'approved',
-          draft_content: 'Our Members can access standard pricing today!',
-          draft_id: 'c1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d',
-          draft_title: 'Summer Member Access Campaign (Snippet B)',
-          findings_summary: [],
-          issued_at: '2026-07-01T14:35:00.000Z',
-          policy_versions_applied: [
-            { policy_card_id: 'pol_term_001', policy_version: '1.0' },
-          ],
-          review_id: 'rev_001',
-          reviewer_id: 'rev_101',
-          reviewer_name: 'Compliance Officer Sarah',
-          scan_id: 's1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d',
-          total_findings: 0,
+        const seed = SEED_DEFAULT_PASSPORTS['pass_demo_verified_001'];
+        const mockSnapshot: Record<string, any> = {
+          ...seed.metadata_snapshot,
+          draft_id: `d_${passportId}`,
         };
         const computed = await computeCanonicalSha256(mockSnapshot);
-        return {
+        const seeded: PassportRecord = {
           id: passportId,
           draft_id: mockSnapshot.draft_id,
-          scan_id: mockSnapshot.scan_id,
-          review_id: mockSnapshot.review_id,
+          scan_id: `s_${passportId}`,
+          review_id: `rev_${passportId}`,
           passport_hash: computed,
           status: 'valid',
           metadata_snapshot: mockSnapshot,
           hash_verified: true,
-          created_at: mockSnapshot.issued_at,
+          created_at: mockSnapshot.issued_at || new Date().toISOString(),
         };
+        this.passports[passportId] = seeded;
+        this.persist();
+        return seeded;
       }
       return null;
     }

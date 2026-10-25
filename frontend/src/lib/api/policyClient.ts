@@ -1,5 +1,5 @@
 /**
- * Brand Ledger - Member 2: Policy & Brand API Client
+ * Brand Ledger - Policy & Brand API Client
  * 
  * Provides an enterprise-grade typed interface for:
  * 1. Policy Library CRUD and filtering
@@ -9,7 +9,7 @@
  * Architecture:
  * - Direct REST integration with FastAPI backend when endpoints are deployed
  * - Development persistence adapter (localStorage + in-memory fallback) when
- *   backend persistence is not yet provided by Member 3 (Zoya)
+ *   backend persistence is unavailable
  */
 
 import type { PolicyCard, PolicyFilterState, BrandProfile } from '../../types/policy.ts';
@@ -258,8 +258,8 @@ class PolicyClient {
   }
 
   /**
-   * Dedicated export contract for Sana's Scan Workspace (Member 1)
-   * and Zynab's Rules Engine (Member 4).
+   * Dedicated export contract for the Scan Workspace
+   * and Rules Engine.
    * 
    * Returns ONLY approved policies (excluding drafts and archived policies),
    * formatted strictly to match backend/app/schemas/policy.py:PolicyCard.

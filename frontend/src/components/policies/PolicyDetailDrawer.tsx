@@ -78,7 +78,7 @@ export const PolicyDetailDrawer: React.FC<PolicyDetailDrawerProps> = ({
               <div className={styles.evidenceBox}>
                 <blockquote className={styles.evidenceQuote}>&ldquo;{sourceQuote}&rdquo;</blockquote>
                 <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
-                  Enforced by Member 4 Evidence Verifier: Every reported finding must trace back to this exact text.
+                  Enforced by the Evidence Verifier: Every reported finding must trace back to this exact text.
                 </span>
               </div>
             </div>

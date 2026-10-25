@@ -186,30 +186,58 @@ BrandLedger includes a fully documented environment template:
 
 ---
 
-## 7. Database Setup & Startup (Docker Compose)
+## 7. Docker Setup & Full-Stack Containerization
 
-BrandLedger uses PostgreSQL 16 containerized via Docker Compose. The database is mapped to host port **`5433`** to prevent collisions with existing local PostgreSQL installations on port 5432.
+BrandLedger supports complete single-command containerization via Docker Compose, as well as database-only containerization for local development.
 
-1. **Start the database container**:
+### Option A: Complete Full-Stack Containerization (Recommended)
+Starts all three services: PostgreSQL 16 (port `5433:5432`), FastAPI Backend with Tesseract OCR pre-installed (port `8000`), and Next.js Web App (port `3000`).
+
+1. **Start the entire application stack**:
    ```bash
-   docker compose up -d
+   docker compose up --build -d
    ```
 
 2. **Verify container health**:
    ```bash
    docker compose ps
    ```
-   *Expected Output*: Container `brandledger_postgres` running and healthy.
+   *Expected Output*:
+   - `brandledger_postgres`: Up (healthy) on `5433->5432`
+   - `brandledger_backend`: Up (healthy) on `8000->8000`
+   - `brandledger_frontend`: Up on `3000->3000`
 
-3. **Verify database connection and schema initialization**:
-   The container automatically executes `database/schema.sql` (DDL) and `database/seed.sql` (realistic demo policies and drafts) on initial startup.
+3. **Access the application**:
+   - Web Application: [http://localhost:3000](http://localhost:3000)
+   - Backend API Docs (Swagger UI): [http://localhost:8000/docs](http://localhost:8000/docs)
+   - API Health Check: [http://localhost:8000/health](http://localhost:8000/health)
+
+4. **Stop all containers**:
+   ```bash
+   docker compose down
+   ```
+
+---
+
+### Option B: Database-Only Mode (For Local Code Development)
+If you prefer running Python and Next.js directly on your host machine for live hot-reloading:
+
+1. **Start only the database**:
+   ```bash
+   docker compose up brandledger_db -d
+   ```
+
+2. **Verify database connection and schema initialization**:
+   The container automatically executes `database/schema.sql` (DDL) and `database/seed.sql` on initial initialization.
    ```bash
    docker exec -it brandledger_postgres pg_isready -U brandledger_user -d brandledger
    ```
 
-4. **Stop the database container** (when needed):
+3. **Reset Database Volume** (if schema or seed SQL files are modified):
+   Because PostgreSQL only executes initialization scripts when the data volume is empty, purge and rebuild the volume using:
    ```bash
-   docker compose down
+   docker compose down -v
+   docker compose up brandledger_db -d
    ```
 
 ---
@@ -259,12 +287,31 @@ BrandLedger uses PostgreSQL 16 containerized via Docker Compose. The database is
    npm run dev
    ```
 
-4. **Access the application**:
-   Open [http://localhost:3000](http://localhost:3000) in your web browser.
-   - **Landing Page & Architecture Overview**: `http://localhost:3000`
-   - **Policy Library**: `http://localhost:3000/policies`
-   - **Brand Passport (Governance)**: `http://localhost:3000/brand-passport`
-   - **Scan Workspace Boundary**: `http://localhost:3000/workspace`
+4. **Open localhost in your browser**:
+   - **Direct Browser URL**: Open [http://localhost:3000](http://localhost:3000)
+   - **Terminal Commands to Open Automatically**:
+     - **Windows (PowerShell)**:
+       ```powershell
+       Start-Process http://localhost:3000
+       ```
+     - **macOS**:
+       ```bash
+       open http://localhost:3000
+       ```
+     - **Linux**:
+       ```bash
+       xdg-open http://localhost:3000
+       ```
+
+5. **Available Application Routes**:
+   - **Landing Page & Architecture Overview**: [http://localhost:3000](http://localhost:3000)
+   - **Scan Workspace (Upload, OCR & Scan)**: [http://localhost:3000/workspace](http://localhost:3000/workspace)
+   - **Policy Library & Governance**: [http://localhost:3000/policies](http://localhost:3000/policies)
+   - **Brand Passport (Guardrails & Identity)**: [http://localhost:3000/brand-passport](http://localhost:3000/brand-passport)
+   - **Review Gateway (Separation of Duties)**: [http://localhost:3000/review](http://localhost:3000/review)
+   - **Content Passports & Tamper Simulator**: [http://localhost:3000/passports](http://localhost:3000/passports)
+   - **Audit Trail**: [http://localhost:3000/audit](http://localhost:3000/audit)
+   - **Governance Insights & Analytics**: [http://localhost:3000/insights](http://localhost:3000/insights)
 
 ---
 

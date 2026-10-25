@@ -1,0 +1,25 @@
+# Git & IDE
+.git
+.gitignore
+.idea
+.vscode
+.gemini
+
+# Node
+node_modules
+.next
+npm-debug.log*
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+.venv
+venv
+env
+.pytest_cache
+
+# Database volumes
+brandledger_pgdata

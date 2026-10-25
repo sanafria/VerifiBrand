@@ -1,8 +1,8 @@
 .footer {
-  border-top: 1px solid var(--border-subtle);
-  background: rgba(10, 14, 23, 0.7);
-  padding: 32px 0 24px;
-  margin-top: 60px;
+  border-top: 1px solid var(--border-light);
+  background: #F8F5EE;
+  padding: 48px 0 32px;
+  margin-top: 80px;
 }
 
 .container {
@@ -11,72 +11,97 @@
   padding: 0 24px;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 32px;
 }
 
 .topRow {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   flex-wrap: wrap;
-  gap: 16px;
+  gap: 32px;
 }
 
 .metaInfo {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 8px;
+  max-width: 380px;
 }
 
 .title {
-  font-weight: 600;
-  font-size: 0.95rem;
-  color: var(--text-primary);
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: var(--brand-navy);
 }
 
 .subtitle {
-  font-size: 0.82rem;
-  color: var(--text-muted);
-}
-
-.teamAttribution {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 0.8rem;
+  font-size: 0.88rem;
   color: var(--text-secondary);
+  line-height: 1.5;
 }
 
-.memberPill {
-  background: var(--bg-surface);
-  border: 1px solid var(--border-light);
-  padding: 4px 10px;
-  border-radius: var(--radius-full);
-  font-weight: 500;
-  color: #38bdf8;
+.linksCol {
+  display: flex;
+  gap: 48px;
+  flex-wrap: wrap;
+}
+
+.linkGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.groupTitle {
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--brand-navy);
+}
+
+.footerLink {
+  font-size: 0.88rem;
+  color: var(--text-secondary);
+  transition: color 0.15s ease;
+}
+
+.footerLink:hover {
+  color: var(--brand-navy);
 }
 
 .bottomRow {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  border-top: 1px solid var(--border-subtle);
-  padding-top: 16px;
-  font-size: 0.75rem;
+  border-top: 1px solid var(--border-light);
+  padding-top: 20px;
+  font-size: 0.82rem;
   color: var(--text-muted);
   flex-wrap: wrap;
-  gap: 12px;
+  gap: 16px;
+}
+
+.hackathonTag {
+  font-weight: 600;
+  color: var(--brand-navy);
 }
 
 .statusIndicator {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
+  font-size: 0.8rem;
+  color: var(--status-approved-text);
+  background: var(--status-approved-bg);
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
 }
 
 .greenDot {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: #10b981;
+  background: #166534;
 }

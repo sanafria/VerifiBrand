@@ -124,7 +124,7 @@ export default function InsightsPage() {
             Violation Category Breakdown
           </h2>
           <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-            Distribution of policy breaches caught pre-publication by deterministic rule checks and AdaptionLabs AI Blueprint.
+            Distribution of policy breaches caught pre-publication by deterministic rule checks and assisted linguistic analysis.
           </p>
 
           <div className={styles.categoryList}>

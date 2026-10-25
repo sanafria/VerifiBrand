@@ -49,7 +49,7 @@ export default function BrandPassportPage() {
         quote: p.metadata.quote,
       })),
       exportedAt: new Date().toISOString(),
-      governanceCoreVersion: 'BrandLedger Member 2 Blueprint v1.0',
+      governanceCoreVersion: 'VerifiBrand Governance Blueprint v1.0',
     };
     const blob = new Blob([JSON.stringify(passportExport, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -82,7 +82,7 @@ export default function BrandPassportPage() {
             <line x1="12" y1="8" x2="12.01" y2="8" />
           </svg>
           <span>
-            Brand Passport aggregates approved brand identity rules to power Member 4&apos;s rules engine.
+            Brand Passport aggregates approved brand identity rules to power the compliance rules engine.
           </span>
         </div>
         <div className={styles.actionButtons}>

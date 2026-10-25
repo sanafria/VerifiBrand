@@ -79,16 +79,16 @@ function ReviewGateContent() {
     setErrorMessage(null);
     setErrorStatus(null);
     if (newRole === 'creator') {
-      setReviewerName('Sana Fria (Marketing Creator)');
-      setReviewerId('creator_sana');
+      setReviewerName('Alex Kim (Marketing Creator)');
+      setReviewerId('creator_alex');
       showToast('Switched to Creator role. Self-approval will trigger HTTP 403 Forbidden.');
     } else if (newRole === 'reviewer') {
       setReviewerName('Sarah Chen (Compliance Officer)');
       setReviewerId('rev_101');
       showToast('Switched to Reviewer role. Authorized to approve & mint passports.');
     } else {
-      setReviewerName('Zoya Nadeem (System Admin)');
-      setReviewerId('admin_zoya');
+      setReviewerName('Jordan Blake (System Admin)');
+      setReviewerId('admin_jordan');
       showToast('Switched to Admin role. Full authorization granted.');
     }
   };
@@ -205,7 +205,7 @@ function ReviewGateContent() {
       {/* Toast Notification */}
       {toastMessage && (
         <div className={styles.toast}>
-          <Zap size={15} color="#38bdf8" />
+          <Zap size={15} color="var(--brand-gold)" />
           <span>{toastMessage}</span>
         </div>
       )}
@@ -215,7 +215,7 @@ function ReviewGateContent() {
         <div className={styles.headerTop}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
             <span className={styles.teamBadge}>
-              <Shield size={14} /> Member 3 • Architecture Ownership: Zoya Nadeem
+              <Shield size={14} /> Review Gateway • Separation of Duties Engine
             </span>
             <span style={{
               display: 'inline-flex',
@@ -225,14 +225,13 @@ function ReviewGateContent() {
               fontWeight: 600,
               padding: '3px 10px',
               borderRadius: 20,
-              background: backendConnected ? 'rgba(16, 185, 129, 0.15)' : 'rgba(245, 158, 11, 0.15)',
-              border: `1px solid ${backendConnected ? 'rgba(16, 185, 129, 0.3)' : 'rgba(245, 158, 11, 0.3)'}`,
-              color: backendConnected ? '#34d399' : '#fbbf24',
+              background: backendConnected ? 'var(--status-approved-bg)' : 'var(--status-warning-bg)',
+              border: `1px solid ${backendConnected ? 'rgba(27, 77, 62, 0.25)' : 'rgba(146, 64, 14, 0.25)'}`,
+              color: backendConnected ? 'var(--status-approved-text)' : 'var(--status-warning-text)',
             }}>
               <span style={{
                 width: 7, height: 7, borderRadius: '50%',
-                background: backendConnected ? '#10b981' : '#f59e0b',
-                boxShadow: backendConnected ? '0 0 8px #10b981' : 'none'
+                background: backendConnected ? 'var(--brand-forest)' : 'var(--brand-gold)',
               }} />
               {backendConnected ? 'FastAPI Backend Online (:8000)' : 'Client Cryptographic Engine (Deterministic Safe Mode)'}
             </span>
@@ -248,12 +247,9 @@ function ReviewGateContent() {
           </div>
         </div>
 
-        <h1 className={styles.title}>Human Reviewer Approval Gateway</h1>
+        <h1 className={styles.title}>Review content before publication</h1>
         <p className={styles.desc}>
-          Enforces enterprise multi-party governance for brand marketing assets (AT-010). 
-          Content creators are prohibited from approving their own drafts (HTTP 403 Forbidden). 
-          Approval by an authorized compliance reviewer cryptographically generates an immutable 
-          <strong> Content Passport</strong> anchored by a canonical SHA-256 digital fingerprint.
+          Check drafts against active brand policies, substantiate claims, and generate tamper-evident content passports before publishing.
         </p>
 
         {/* Presentation Fast Presets */}
@@ -263,7 +259,7 @@ function ReviewGateContent() {
             className={styles.presetBtn}
             onClick={handleLoadAct4Preset}
           >
-            <Check size={14} color="#34d399" />
+            <Check size={14} color="var(--brand-forest)" />
             <span>Preset: Act 4 (Compliant Snippet B • Reviewer)</span>
           </button>
           <button
@@ -271,7 +267,7 @@ function ReviewGateContent() {
             className={styles.presetBtn}
             onClick={handleLoad403Demo}
           >
-            <AlertOctagon size={14} color="#fb7185" />
+            <AlertOctagon size={14} color="var(--status-blocked-text)" />
             <span>Test AT-018: Creator Self-Approval 403 Gate</span>
           </button>
         </div>
@@ -280,13 +276,13 @@ function ReviewGateContent() {
       {/* Role Switcher Bar */}
       <div className={styles.roleSelectorBar}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <UserCheck size={18} color="#38bdf8" />
+          <UserCheck size={18} color="var(--brand-navy)" />
           <div>
             <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)' }}>
               Active Authorization Context (X-User-Role Header):
             </div>
             <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
-              Active User: <strong style={{ color: '#f8fafc' }}>{reviewerName}</strong> (ID: <code>{reviewerId}</code>)
+              Active User: <strong style={{ color: 'var(--text-primary)' }}>{reviewerName}</strong> (ID: <code>{reviewerId}</code>)
             </div>
           </div>
         </div>
@@ -340,8 +336,8 @@ function ReviewGateContent() {
                     fontWeight: 600,
                     textTransform: 'capitalize',
                     border: '1px solid var(--border-subtle)',
-                    background: filterStatus === f ? '#38bdf8' : 'transparent',
-                    color: filterStatus === f ? '#0a0e17' : 'var(--text-muted)',
+                    background: filterStatus === f ? 'var(--brand-navy)' : 'transparent',
+                    color: filterStatus === f ? '#FFFFFF' : 'var(--text-muted)',
                     cursor: 'pointer',
                   }}
                 >
@@ -388,8 +384,8 @@ function ReviewGateContent() {
                       textTransform: 'uppercase',
                       padding: '2px 8px',
                       borderRadius: 4,
-                      background: item.status === 'approved' ? 'rgba(16, 185, 129, 0.18)' : item.status === 'rejected' ? 'rgba(244, 63, 94, 0.18)' : 'rgba(245, 158, 11, 0.18)',
-                      color: item.status === 'approved' ? '#34d399' : item.status === 'rejected' ? '#fb7185' : '#fbbf24',
+                      background: item.status === 'approved' ? 'var(--status-approved-bg)' : item.status === 'rejected' ? 'var(--status-blocked-bg)' : 'var(--status-warning-bg)',
+                      color: item.status === 'approved' ? 'var(--status-approved-text)' : item.status === 'rejected' ? 'var(--status-blocked-text)' : 'var(--status-warning-text)',
                     }}>
                       {item.status}
                     </span>
@@ -409,8 +405,8 @@ function ReviewGateContent() {
                         gap: 4,
                         fontSize: '0.7rem',
                         fontWeight: 700,
-                        color: '#fb7185',
-                        background: 'rgba(244, 63, 94, 0.12)',
+                        color: 'var(--status-blocked-text)',
+                        background: 'var(--status-blocked-bg)',
                         padding: '2px 6px',
                         borderRadius: 4,
                       }}>
@@ -423,8 +419,8 @@ function ReviewGateContent() {
                         gap: 4,
                         fontSize: '0.7rem',
                         fontWeight: 700,
-                        color: '#34d399',
-                        background: 'rgba(16, 185, 129, 0.12)',
+                        color: 'var(--status-approved-text)',
+                        background: 'var(--status-approved-bg)',
                         padding: '2px 6px',
                         borderRadius: 4,
                       }}>
@@ -439,8 +435,8 @@ function ReviewGateContent() {
                         gap: 4,
                         fontSize: '0.7rem',
                         fontWeight: 700,
-                        color: '#38bdf8',
-                        background: 'rgba(56, 189, 248, 0.12)',
+                        color: 'var(--brand-forest)',
+                        background: 'var(--status-approved-bg)',
                         padding: '2px 6px',
                         borderRadius: 4,
                       }}>
@@ -466,7 +462,7 @@ function ReviewGateContent() {
                   </h2>
                 </div>
                 <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                  Draft ID: <code style={{ color: '#38bdf8' }}>{selectedItem.draftId}</code> • Scan ID: <code>{selectedItem.scanId}</code>
+                  Draft ID: <code style={{ color: 'var(--brand-navy)', fontWeight: 700 }}>{selectedItem.draftId}</code> • Scan ID: <code>{selectedItem.scanId}</code>
                 </div>
               </div>
 
@@ -479,9 +475,9 @@ function ReviewGateContent() {
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: 6,
-                  background: selectedItem.blockersCount === 0 ? 'rgba(16, 185, 129, 0.15)' : 'rgba(244, 63, 94, 0.15)',
-                  color: selectedItem.blockersCount === 0 ? '#34d399' : '#fb7185',
-                  border: `1px solid ${selectedItem.blockersCount === 0 ? 'rgba(16, 185, 129, 0.3)' : 'rgba(244, 63, 94, 0.3)'}`
+                  background: selectedItem.blockersCount === 0 ? 'var(--status-approved-bg)' : 'var(--status-blocked-bg)',
+                  color: selectedItem.blockersCount === 0 ? 'var(--status-approved-text)' : 'var(--status-blocked-text)',
+                  border: `1px solid ${selectedItem.blockersCount === 0 ? 'rgba(27, 77, 62, 0.25)' : 'rgba(153, 27, 27, 0.25)'}`
                 }}>
                   {selectedItem.blockersCount === 0 ? (
                     <>
@@ -514,7 +510,7 @@ function ReviewGateContent() {
                 <span style={{ fontSize: '0.78rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
                   Policy Evidence Audit Trail ({selectedItem.findings?.length || 0})
                 </span>
-                <span style={{ fontSize: '0.74rem', color: '#38bdf8', fontWeight: 600 }}>
+                <span style={{ fontSize: '0.74rem', color: 'var(--brand-navy-light)', fontWeight: 600 }}>
                   Guaranteed Quote Citations Enforced
                 </span>
               </div>
@@ -525,7 +521,7 @@ function ReviewGateContent() {
                     <div
                       key={idx}
                       style={{
-                        background: 'rgba(255, 255, 255, 0.02)',
+                        background: 'var(--bg-surface)',
                         border: '1px solid var(--border-subtle)',
                         borderRadius: 8,
                         padding: '12px 16px',
@@ -538,8 +534,8 @@ function ReviewGateContent() {
                             fontWeight: 800,
                             padding: '2px 6px',
                             borderRadius: 4,
-                            background: f.severity === 'high' || f.severity === 'block' ? 'rgba(244, 63, 94, 0.2)' : 'rgba(245, 158, 11, 0.2)',
-                            color: f.severity === 'high' || f.severity === 'block' ? '#fb7185' : '#fbbf24',
+                            background: f.severity === 'high' || f.severity === 'block' ? 'var(--status-blocked-bg)' : 'var(--status-warning-bg)',
+                            color: f.severity === 'high' || f.severity === 'block' ? 'var(--status-blocked-text)' : 'var(--status-warning-text)',
                             textTransform: 'uppercase',
                           }}>
                             {f.severity}
@@ -548,7 +544,7 @@ function ReviewGateContent() {
                             {f.category.replace('_', ' ').toUpperCase()}
                           </span>
                         </div>
-                        <code style={{ fontSize: '0.74rem', color: '#38bdf8' }}>
+                        <code style={{ fontSize: '0.74rem', color: 'var(--brand-navy)', fontWeight: 700 }}>
                           {f.policy_card_id} (v{f.policy_version || '1.0'})
                         </code>
                       </div>
@@ -558,12 +554,13 @@ function ReviewGateContent() {
                       </p>
 
                       <div style={{
-                        background: 'rgba(0, 0, 0, 0.3)',
-                        borderLeft: '3px solid #38bdf8',
-                        padding: '6px 12px',
+                        background: '#FFFFFF',
+                        borderLeft: '3px solid var(--brand-forest)',
+                        padding: '8px 12px',
                         fontSize: '0.78rem',
-                        color: 'var(--text-muted)',
+                        color: 'var(--text-secondary)',
                         fontStyle: 'italic',
+                        borderRadius: '0 4px 4px 0',
                       }}>
                         Source Quote: &ldquo;{f.source_quote}&rdquo;
                       </div>
@@ -572,16 +569,16 @@ function ReviewGateContent() {
                 </div>
               ) : (
                 <div style={{
-                  background: 'rgba(16, 185, 129, 0.05)',
-                  border: '1px solid rgba(16, 185, 129, 0.2)',
+                  background: 'var(--status-approved-bg)',
+                  border: '1px solid rgba(27, 77, 62, 0.25)',
                   borderRadius: 8,
                   padding: '14px 18px',
                   display: 'flex',
                   alignItems: 'center',
                   gap: 12
                 }}>
-                  <CheckCircle2 size={18} color="#34d399" />
-                  <span style={{ fontSize: '0.84rem', color: '#a7f3d0' }}>
+                  <CheckCircle2 size={18} color="var(--brand-forest)" />
+                  <span style={{ fontSize: '0.84rem', color: 'var(--status-approved-text)', fontWeight: 600 }}>
                     Zero policy citations flagged against active guidelines. Clean bill of health.
                   </span>
                 </div>
@@ -591,17 +588,17 @@ function ReviewGateContent() {
             {/* Error / Governance Rejection Banner */}
             {errorMessage && (
               <div style={{
-                background: errorStatus === 403 ? 'rgba(244, 63, 94, 0.15)' : 'rgba(245, 158, 11, 0.15)',
-                border: `1px solid ${errorStatus === 403 ? 'rgba(244, 63, 94, 0.4)' : 'rgba(245, 158, 11, 0.4)'}`,
+                background: errorStatus === 403 ? 'var(--status-blocked-bg)' : 'var(--status-warning-bg)',
+                border: `1px solid ${errorStatus === 403 ? 'rgba(153, 27, 27, 0.3)' : 'rgba(146, 64, 14, 0.3)'}`,
                 borderRadius: 8,
                 padding: '14px 18px',
                 display: 'flex',
                 alignItems: 'flex-start',
                 gap: 12,
               }}>
-                <AlertOctagon size={20} color={errorStatus === 403 ? '#f43f5e' : '#f59e0b'} style={{ flexShrink: 0, marginTop: 2 }} />
+                <AlertOctagon size={20} color={errorStatus === 403 ? 'var(--status-blocked-text)' : 'var(--status-warning-text)'} style={{ flexShrink: 0, marginTop: 2 }} />
                 <div>
-                  <div style={{ fontWeight: 800, fontSize: '0.9rem', color: errorStatus === 403 ? '#fda4af' : '#fde68a' }}>
+                  <div style={{ fontWeight: 800, fontSize: '0.9rem', color: errorStatus === 403 ? 'var(--status-blocked-text)' : 'var(--status-warning-text)' }}>
                     {errorStatus === 403 ? 'HTTP 403 Forbidden — Self-Approval Prohibited' : 'Review Submission Error'}
                   </div>
                   <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginTop: 4, lineHeight: 1.5 }}>
@@ -613,11 +610,11 @@ function ReviewGateContent() {
                         type="button"
                         onClick={() => handleRoleChange('reviewer')}
                         style={{
-                          background: '#38bdf8',
-                          color: '#0a0e17',
+                          background: 'var(--brand-forest)',
+                          color: '#FFFFFF',
                           border: 'none',
                           borderRadius: 4,
-                          padding: '4px 10px',
+                          padding: '5px 12px',
                           fontSize: '0.76rem',
                           fontWeight: 700,
                           cursor: 'pointer',
@@ -638,18 +635,18 @@ function ReviewGateContent() {
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                     <div style={{
                       width: 40, height: 40, borderRadius: 8,
-                      background: 'rgba(16, 185, 129, 0.2)',
+                      background: 'rgba(27, 77, 62, 0.15)',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      color: '#34d399',
+                      color: 'var(--brand-forest)',
                     }}>
                       <Award size={22} />
                     </div>
                     <div>
-                      <div style={{ fontSize: '1rem', fontWeight: 800, color: '#34d399' }}>
+                      <div style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--status-approved-text)' }}>
                         Content Passport Minted Successfully!
                       </div>
                       <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                        Draft transitioned to <strong style={{ color: '#34d399' }}>APPROVED</strong> status
+                        Draft transitioned to <strong style={{ color: 'var(--status-approved-text)' }}>APPROVED</strong> status
                       </div>
                     </div>
                   </div>
@@ -666,9 +663,9 @@ function ReviewGateContent() {
                 <div style={{
                   marginTop: 14,
                   padding: '12px 14px',
-                  background: 'rgba(0, 0, 0, 0.3)',
+                  background: '#FFFFFF',
                   borderRadius: 6,
-                  border: '1px solid rgba(16, 185, 129, 0.2)',
+                  border: '1px solid var(--border-light)',
                   display: 'grid',
                   gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
                   gap: 12,
@@ -676,11 +673,11 @@ function ReviewGateContent() {
                 }}>
                   <div>
                     <span style={{ color: 'var(--text-muted)', display: 'block' }}>Passport ID:</span>
-                    <code style={{ color: '#38bdf8', fontWeight: 700 }}>{successResponse.passport_id}</code>
+                    <code style={{ color: 'var(--brand-navy)', fontWeight: 700 }}>{successResponse.passport_id}</code>
                   </div>
                   <div>
                     <span style={{ color: 'var(--text-muted)', display: 'block' }}>Canonical SHA-256 Fingerprint:</span>
-                    <code style={{ color: '#34d399', fontSize: '0.72rem' }}>
+                    <code style={{ color: 'var(--brand-forest)', fontSize: '0.72rem', fontWeight: 700 }}>
                       {successResponse.sha256 ? `${successResponse.sha256.slice(0, 24)}...` : 'Verified Untampered'}
                     </code>
                   </div>

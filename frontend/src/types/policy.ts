@@ -1,9 +1,9 @@
 /**
- * Brand Ledger - Member 2: Policy Library & Brand Passport Type Definitions
+ * Brand Ledger - Policy Library & Brand Passport Type Definitions
  * 
  * Accurately mirrors and extends backend/app/schemas/policy.py and backend/app/schemas/finding.py
- * while preserving full compatibility with Zynab's rules engine (Member 4)
- * and Zoya's shared API layer.
+ * while preserving full compatibility with the compliance rules engine
+ * and shared API layer.
  */
 
 export type PolicyCategory = 

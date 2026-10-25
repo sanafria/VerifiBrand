@@ -1,54 +1,86 @@
 /* ==========================================================================
-   Brand Ledger Design System Tokens & Global Base
+   BrandLedger Design System Tokens & Global Base
+   Editorial, Calm, Evidence-Led Design System
    ========================================================================== */
 
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=DM+Serif+Display&family=Inter:wght@400;500;600;700&display=swap');
+
 :root {
-  /* Brand Ledger Palette - Dark Theme Default */
-  --bg-main: #0a0e17;
-  --bg-card: #111726;
-  --bg-card-hover: #172033;
-  --bg-surface: #1c253b;
-  --bg-surface-elevated: #242f49;
-  --bg-input: #0f1524;
+  /* Warm Editorial Palette */
+  --bg-main: #FDFBF7;
+  --bg-card: #FFFFFF;
+  --bg-card-hover: #F8F5EE;
+  --bg-surface: #F5EFEB;
+  --bg-surface-elevated: #EDE7DD;
+  --bg-input: #FFFFFF;
   
-  --border-subtle: rgba(255, 255, 255, 0.08);
-  --border-light: rgba(255, 255, 255, 0.14);
-  --border-focus: #38bdf8;
+  --border-subtle: #E8E2D8;
+  --border-light: #D8D3C8;
+  --border-focus: #1E293B;
   
-  --text-primary: #f8fafc;
-  --text-secondary: #94a3b8;
-  --text-muted: #64748b;
-  --text-inverse: #0a0e17;
+  --text-primary: #1E293B;
+  --text-secondary: #5C5752;
+  --text-muted: #7A756E;
+  --text-inverse: #FFFFFF;
 
-  /* Category & Semantic Tokens */
-  --color-terminology: #f43f5e;       /* Rose: Prohibited terms */
-  --color-offer: #f59e0b;             /* Amber: Time-bound validity */
-  --color-numerical: #a855f7;         /* Purple: Hard numbers & caps */
-  --color-claims: #38bdf8;            /* Cyan: Substantiation requirements */
-  --color-tone: #ec4899;              /* Pink: Voice & tone */
-  --color-visual: #6366f1;            /* Indigo: Logo & asset specs */
-  --color-success: #10b981;           /* Emerald: Verified / Approved */
-  --color-warning: #eab308;           /* Yellow */
-  --color-neutral: #64748b;           /* Slate: Archived / Info */
+  /* Primary Brand & Accents */
+  --brand-navy: #1E293B;
+  --brand-navy-dark: #0F172A;
+  --brand-navy-light: #334155;
+  --brand-gold: #B58A1F;
+  --brand-gold-hover: #997316;
+  --brand-gold-subtle: #FBF6E9;
+  --brand-cream: #FDFBF7;
+  --brand-stone: #D8D3C8;
+  --brand-forest: #1B4D3E;
 
-  /* Gradients */
-  --gradient-brand: linear-gradient(135deg, #38bdf8 0%, #6366f1 50%, #a855f7 100%);
-  --gradient-card-glow: radial-gradient(circle at top right, rgba(56, 189, 248, 0.08), transparent 60%);
-  --gradient-glass: linear-gradient(180deg, rgba(255, 255, 255, 0.04) 0%, rgba(255, 255, 255, 0.01) 100%);
+  /* Category & Semantic Status Tokens */
+  --color-terminology: #C75C3A;       /* Terracotta: Prohibited terms */
+  --color-offer: #B58A1F;             /* Warm Amber: Validity */
+  --color-numerical: #6B4E71;         /* Deep Plum: Caps & numbers */
+  --color-claims: #1E40AF;            /* Navy Blue: Substantiation */
+  --color-tone: #8B4A62;              /* Rosewood: Voice & tone */
+  --color-visual: #2E5266;            /* Slate Blue: Asset specs */
+  --color-success: #1B4D3E;           /* Forest Green: Approved */
+  --color-warning: #92400E;           /* Amber */
+  --color-neutral: #5C5752;           /* Charcoal */
 
-  /* Elevation & Shadows */
-  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 4px 12px -2px rgba(0, 0, 0, 0.4);
-  --shadow-lg: 0 12px 28px -4px rgba(0, 0, 0, 0.5);
-  --shadow-glow: 0 0 20px rgba(56, 189, 248, 0.2);
+  /* Status System (Section 15) */
+  --status-approved-bg: #E8F3EC;
+  --status-approved-text: #166534;
+  --status-warning-bg: #FFF5D9;
+  --status-warning-text: #92400E;
+  --status-blocked-bg: #FCE8E8;
+  --status-blocked-text: #991B1B;
+  --status-review-bg: #E8F0FA;
+  --status-review-text: #1E40AF;
+  --status-revalidation-bg: #F4EAF8;
+  --status-revalidation-text: #6B21A8;
+  --status-draft-bg: #F1F5F9;
+  --status-draft-text: #475569;
+
+  /* Gradients - Restrained & Editorial */
+  --gradient-brand: linear-gradient(135deg, #1E293B 0%, #334155 100%);
+  --gradient-accent: linear-gradient(135deg, #B58A1F 0%, #D4A373 100%);
+  --gradient-subtle: linear-gradient(180deg, #FFFFFF 0%, #FDFBF7 100%);
+  --gradient-card-glow: none;
+  --gradient-glass: none;
+
+  /* Elevation & Shadows (Section 18) */
+  --shadow-sm: 0 1px 3px rgba(30, 41, 59, 0.05);
+  --shadow-md: 0 4px 16px rgba(30, 41, 59, 0.06);
+  --shadow-lg: 0 10px 25px rgba(30, 41, 59, 0.08);
+  --shadow-glow: 0 4px 16px rgba(30, 41, 59, 0.06);
 
   /* Layout */
-  --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-heading: 'DM Serif Display', Georgia, serif;
+  --font-body: 'DM Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-family: var(--font-body);
   --radius-sm: 6px;
-  --radius-md: 10px;
-  --radius-lg: 16px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
   --radius-full: 9999px;
-  --max-width: 1360px;
+  --max-width: 1280px;
 }
 
 * {
@@ -62,24 +94,32 @@ html, body {
   overflow-x: hidden;
   background-color: var(--bg-main);
   color: var(--text-primary);
-  font-family: var(--font-family);
+  font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  line-height: 1.5;
+  line-height: 1.55;
 }
 
 body {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  background-image: 
-    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(56, 189, 248, 0.12), transparent),
-    radial-gradient(ellipse 60% 40% at 100% 100%, rgba(99, 102, 241, 0.06), transparent);
-  background-attachment: fixed;
 }
 
 main {
   flex: 1;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.editorial-heading {
+  font-family: var(--font-heading);
+  font-weight: 400;
 }
 
 a {
@@ -108,11 +148,70 @@ input, textarea, select {
   background: var(--bg-main);
 }
 ::-webkit-scrollbar-thumb {
-  background: var(--bg-surface);
+  background: var(--border-light);
   border-radius: var(--radius-full);
 }
 ::-webkit-scrollbar-thumb:hover {
   background: var(--text-muted);
+}
+
+/* Base Card & Button Styles (Section 18) */
+.bl-card {
+  background: #FFFFFF;
+  border: 1px solid var(--border-light);
+  border-radius: 10px;
+  box-shadow: 0 4px 16px rgba(30, 41, 59, 0.06);
+}
+
+.btn-primary {
+  background: #1E293B;
+  color: #FFFFFF;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.95rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.15s ease;
+}
+.btn-primary:hover {
+  background: #0F172A;
+  transform: translateY(-1px);
+}
+
+.btn-secondary {
+  background: #FFFFFF;
+  border: 1px solid #D8D3C8;
+  color: #1E293B;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.95rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.15s ease;
+}
+.btn-secondary:hover {
+  background: #F8F5EE;
+  border-color: #C9BBAA;
+}
+
+.btn-accent {
+  background: #B58A1F;
+  color: #FFFFFF;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.95rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.15s ease;
+}
+.btn-accent:hover {
+  background: #997316;
 }
 
 /* Animations */
@@ -124,11 +223,6 @@ input, textarea, select {
 @keyframes slideInRight {
   from { opacity: 0; transform: translateX(20px); }
   to { opacity: 1; transform: translateX(0); }
-}
-
-@keyframes pulseGlow {
-  0%, 100% { opacity: 0.8; }
-  50% { opacity: 1; box-shadow: 0 0 15px rgba(56, 189, 248, 0.4); }
 }
 
 .animate-fade-in {

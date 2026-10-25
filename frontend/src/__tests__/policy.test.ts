@@ -3,7 +3,7 @@ import assert from 'node:assert';
 import { policyClient } from '../lib/api/policyClient.ts';
 import { INITIAL_POLICY_CARDS, INITIAL_BRAND_PROFILES } from '../lib/mockData.ts';
 
-describe('Member 2: Policy Library & Brand Passport Tests', () => {
+describe('Policy Library & Brand Passport Tests', () => {
 
   test('Seed policies match backend/tests/conftest.py archetypes', () => {
     assert.strictEqual(INITIAL_POLICY_CARDS.length >= 4, true, 'Must have at least 4 seed policies');

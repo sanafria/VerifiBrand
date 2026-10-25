@@ -1,271 +1,622 @@
+/* ==========================================================================
+   BrandLedger - Editorial Landing Page CSS
+   Warm Ivory, Deep Navy, Restrained Gold, Stone Borders
+   ========================================================================== */
+
+.pageWrapper {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 80px;
+  padding: 40px 0 60px;
+}
+
 .container {
   max-width: var(--max-width);
   margin: 0 auto;
-  padding: 48px 24px 64px;
-  display: flex;
-  flex-direction: column;
-  gap: 48px;
+  padding: 0 24px;
+  width: 100%;
 }
 
-.hero {
+/* ── Section 1: Hero ── */
+.heroSection {
+  padding-top: 24px;
+}
+
+.heroContent {
   display: flex;
   flex-direction: column;
   align-items: center;
   text-align: center;
-  gap: 20px;
-  max-width: 860px;
-  margin: 0 auto;
+  max-width: 840px;
+  margin: 0 auto 48px;
 }
 
-.pillBadge {
-  background: rgba(56, 189, 248, 0.1);
-  border: 1px solid rgba(56, 189, 248, 0.3);
-  color: #38bdf8;
-  font-size: 0.8rem;
+.heroTrustLine {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--brand-gold-subtle);
+  border: 1px solid rgba(181, 138, 31, 0.25);
+  color: var(--brand-gold);
+  font-size: 0.85rem;
   font-weight: 600;
   padding: 6px 16px;
   border-radius: var(--radius-full);
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  margin-bottom: 24px;
+  letter-spacing: 0.02em;
 }
 
-.title {
-  font-size: 3.4rem;
-  font-weight: 900;
-  letter-spacing: -0.04em;
-  line-height: 1.1;
-  color: var(--text-primary);
+.heroTitle {
+  font-family: var(--font-heading);
+  font-size: 3.5rem;
+  line-height: 1.15;
+  color: var(--brand-navy);
+  margin-bottom: 20px;
+  font-weight: 400;
+  letter-spacing: -0.02em;
 }
 
-.gradientText {
-  background: var(--gradient-brand);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
-
-.subtitle {
-  font-size: 1.15rem;
+.heroSubtitle {
+  font-size: 1.2rem;
   color: var(--text-secondary);
   line-height: 1.6;
-  max-width: 680px;
+  max-width: 720px;
+  margin-bottom: 32px;
 }
 
-.tenetCallout {
-  background: rgba(16, 185, 129, 0.08);
-  border: 1px solid rgba(16, 185, 129, 0.25);
+.heroCtaGroup {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+/* Hero Workflow Visual */
+.workflowMockup {
+  background: #FFFFFF;
+  border: 1px solid var(--border-light);
   border-radius: var(--radius-lg);
-  padding: 18px 28px;
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+  max-width: 1080px;
+  margin: 0 auto;
+}
+
+.mockupHeader {
+  background: #F8F5EE;
+  border-bottom: 1px solid var(--border-light);
+  padding: 12px 20px;
   display: flex;
   align-items: center;
-  gap: 16px;
-  max-width: 680px;
-  text-align: left;
+  justify-content: space-between;
 }
 
-.tenetIcon {
+.mockupTabs {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+}
+
+.mockupGrid {
+  display: grid;
+  grid-template-columns: 1.1fr 1fr;
+  min-height: 360px;
+}
+
+.draftPanel {
+  padding: 28px;
+  border-right: 1px solid var(--border-light);
+  background: #FFFFFF;
+}
+
+.panelLabel {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+}
+
+.draftExcerpt {
+  font-size: 1.05rem;
+  line-height: 1.7;
+  color: var(--brand-navy);
+  background: #FDFBF7;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  padding: 20px;
+}
+
+.highlightedText {
+  background: #FFF5D9;
+  border-bottom: 2px solid #B58A1F;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 600;
+  color: #92400E;
+}
+
+.findingPanel {
+  padding: 28px;
+  background: #FDFBF7;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.findingCard {
+  background: #FFFFFF;
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  padding: 18px;
+  box-shadow: var(--shadow-sm);
+}
+
+.findingHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 10px;
+}
+
+.findingTitle {
+  font-weight: 700;
+  color: var(--brand-navy);
+  font-size: 0.95rem;
+}
+
+.badgeHigh {
+  background: var(--status-warning-bg);
+  color: var(--status-warning-text);
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 4px;
+}
+
+.findingText {
+  font-size: 0.88rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  margin-bottom: 14px;
+}
+
+.evidenceBox {
+  background: #F8F5EE;
+  border-left: 3px solid var(--brand-gold);
+  padding: 10px 14px;
+  border-radius: 0 6px 6px 0;
+  font-size: 0.82rem;
+  color: var(--brand-navy);
+  margin-bottom: 14px;
+}
+
+/* ── Section 2: Problem ── */
+.problemSection {
+  background: #FFFFFF;
+  border-top: 1px solid var(--border-light);
+  border-bottom: 1px solid var(--border-light);
+  padding: 72px 0;
+}
+
+.sectionHeader {
+  text-align: center;
+  max-width: 680px;
+  margin: 0 auto 48px;
+}
+
+.sectionPretitle {
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--brand-gold);
+  letter-spacing: 0.06em;
+  margin-bottom: 10px;
+}
+
+.sectionTitle {
+  font-family: var(--font-heading);
+  font-size: 2.4rem;
+  color: var(--brand-navy);
+  margin-bottom: 16px;
+  font-weight: 400;
+  line-height: 1.25;
+}
+
+.sectionSubtitle {
+  font-size: 1.05rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+.problemGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+  margin-bottom: 32px;
+}
+
+.problemCard {
+  background: #FDFBF7;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  padding: 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.problemIcon {
   width: 40px;
   height: 40px;
-  border-radius: 50%;
-  background: rgba(16, 185, 129, 0.2);
+  border-radius: 8px;
+  background: #FFF5D9;
+  color: #B58A1F;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #10b981;
-  flex-shrink: 0;
 }
 
-.tenetTitle {
-  font-size: 0.95rem;
+.problemHeading {
+  font-size: 1.1rem;
   font-weight: 700;
-  color: #10b981;
+  color: var(--brand-navy);
 }
 
-.tenetDesc {
-  font-size: 0.84rem;
+.problemDesc {
+  font-size: 0.92rem;
   color: var(--text-secondary);
-  line-height: 1.45;
+  line-height: 1.55;
 }
 
-.modulesGrid {
+.closingBanner {
+  background: #F8F5EE;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  padding: 20px 28px;
+  text-align: center;
+  font-size: 1.02rem;
+  font-weight: 600;
+  color: var(--brand-navy);
+}
+
+/* ── Section 3: Workflow ── */
+.stepsGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 20px;
+}
+
+.stepCard {
+  background: #FFFFFF;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  box-shadow: var(--shadow-sm);
+}
+
+.stepNumber {
+  font-family: var(--font-heading);
+  font-size: 2rem;
+  color: var(--brand-gold);
+  line-height: 1;
+  margin-bottom: 12px;
+}
+
+.stepTitle {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--brand-navy);
+  margin-bottom: 8px;
+}
+
+.stepDesc {
+  font-size: 0.88rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+/* ── Section 4: Review Example ── */
+.exampleCard {
+  background: #FFFFFF;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  padding: 32px;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.exampleDraft {
+  background: #FDFBF7;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  padding: 16px 20px;
+  margin-bottom: 24px;
+  font-size: 1.05rem;
+}
+
+.exampleDetailsGrid {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 24px;
+  margin-bottom: 24px;
 }
 
-@media (max-width: 768px) {
-  .modulesGrid {
+.exampleBlock {
+  background: #F8F5EE;
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  padding: 18px;
+}
+
+.exampleActions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+/* ── Section 5: Human Approval States ── */
+.statesGrid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 14px;
+}
+
+.stateCard {
+  border-radius: 8px;
+  padding: 18px 14px;
+  text-align: center;
+  border: 1px solid var(--border-light);
+  background: #FFFFFF;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.stateLabel {
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+}
+
+.stateDesc {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+/* ── Section 6: Features ── */
+.featuresGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+}
+
+.featureCard {
+  background: #FFFFFF;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  padding: 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.featureCard:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.featureIcon {
+  width: 38px;
+  height: 38px;
+  border-radius: 8px;
+  background: #F8F5EE;
+  color: var(--brand-navy);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.featureTitle {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--brand-navy);
+}
+
+.featureDesc {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  line-height: 1.55;
+}
+
+/* ── Section 7: Governance Insights ── */
+.insightsCard {
+  background: #FFFFFF;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg);
+  padding: 32px;
+  max-width: 860px;
+  margin: 0 auto;
+  box-shadow: var(--shadow-md);
+}
+
+.insightRow {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+/* ── Section 8: Security & Responsible Design ── */
+.securityGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 20px;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.securityCard {
+  background: #FFFFFF;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  padding: 22px;
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+/* ── Section 9: Who It Is For ── */
+.personaGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 20px;
+}
+
+.personaCard {
+  background: #FFFFFF;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.personaRole {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--brand-navy);
+}
+
+.personaNeed {
+  font-size: 0.88rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+/* ── Section 10: Validation & Impact ── */
+.metricsGrid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 16px;
+  margin-top: 24px;
+}
+
+.metricCard {
+  background: #FFFFFF;
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  padding: 18px 14px;
+  text-align: center;
+}
+
+.metricTitle {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--brand-navy);
+  line-height: 1.4;
+}
+
+/* ── Section 11: Future Scope ── */
+.futurePills {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: center;
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.futurePill {
+  background: #FFFFFF;
+  border: 1px solid var(--border-light);
+  padding: 8px 18px;
+  border-radius: var(--radius-full);
+  font-size: 0.88rem;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ── Section 12: Final CTA ── */
+.finalCtaSection {
+  background: #1E293B;
+  color: #FFFFFF;
+  border-radius: var(--radius-lg);
+  padding: 56px 32px;
+  text-align: center;
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+.ctaTitle {
+  font-family: var(--font-heading);
+  font-size: 2.4rem;
+  color: #FFFFFF;
+  margin-bottom: 16px;
+  font-weight: 400;
+}
+
+.ctaSubtitle {
+  font-size: 1.1rem;
+  color: #CBD5E1;
+  max-width: 600px;
+  margin: 0 auto 32px;
+  line-height: 1.6;
+}
+
+.ctaButtons {
+  display: flex;
+  gap: 14px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+/* Responsive */
+@media (max-width: 960px) {
+  .heroTitle {
+    font-size: 2.6rem;
+  }
+  .mockupGrid {
+    grid-template-columns: 1fr;
+  }
+  .problemGrid, .stepsGrid, .featuresGrid, .personaGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .statesGrid, .metricsGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .exampleDetailsGrid {
     grid-template-columns: 1fr;
   }
 }
 
-.moduleCard {
-  background: var(--bg-card);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-lg);
-  padding: 36px;
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-  position: relative;
-  overflow: hidden;
-  box-shadow: var(--shadow-sm);
-}
-
-.moduleCard:hover {
-  background: var(--bg-card-hover);
-  border-color: var(--border-light);
-  transform: translateY(-4px);
-  box-shadow: var(--shadow-lg);
-}
-
-.cardGlow {
-  position: absolute;
-  top: 0;
-  right: 0;
-  width: 200px;
-  height: 200px;
-  background: radial-gradient(circle at top right, rgba(56, 189, 248, 0.12), transparent 70%);
-  pointer-events: none;
-}
-
-.cardHeader {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.cardIcon {
-  width: 48px;
-  height: 48px;
-  border-radius: var(--radius-md);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.4rem;
-}
-
-.iconLibrary {
-  background: rgba(56, 189, 248, 0.15);
-  color: #38bdf8;
-}
-
-.iconPassport {
-  background: rgba(168, 85, 247, 0.15);
-  color: #a855f7;
-}
-
-.cardTag {
-  font-size: 0.75rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  padding: 4px 10px;
-  border-radius: var(--radius-full);
-  background: var(--bg-surface);
-  border: 1px solid var(--border-subtle);
-  color: var(--text-secondary);
-}
-
-.cardTitle {
-  font-size: 1.6rem;
-  font-weight: 800;
-  color: var(--text-primary);
-  letter-spacing: -0.02em;
-}
-
-.cardDesc {
-  font-size: 0.95rem;
-  color: var(--text-secondary);
-  line-height: 1.6;
-}
-
-.featuresList {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  list-style: none;
-  font-size: 0.88rem;
-  color: var(--text-secondary);
-  margin-top: auto;
-}
-
-.featureItem {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.btnCardAction {
-  margin-top: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 20px;
-  border-radius: var(--radius-md);
-  background: var(--bg-surface);
-  border: 1px solid var(--border-light);
-  font-weight: 600;
-  font-size: 0.92rem;
-  color: var(--text-primary);
-  transition: all 0.2s;
-}
-
-.moduleCard:hover .btnCardAction {
-  background: var(--gradient-brand);
-  color: white;
-  border-color: transparent;
-}
-
-.teamSection {
-  background: var(--bg-card);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-lg);
-  padding: 32px;
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-
-.teamTitle {
-  font-size: 1.3rem;
-  font-weight: 700;
-  color: var(--text-primary);
-}
-
-.teamGrid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 16px;
-}
-
-.memberCard {
-  background: var(--bg-surface);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  font-size: 0.85rem;
-}
-
-.memberRole {
-  font-size: 0.72rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  color: #38bdf8;
-}
-
-.memberName {
-  font-weight: 600;
-  color: var(--text-primary);
-}
-
-.memberDesc {
-  font-size: 0.78rem;
-  color: var(--text-muted);
+@media (max-width: 640px) {
+  .heroTitle {
+    font-size: 2rem;
+  }
+  .problemGrid, .stepsGrid, .featuresGrid, .personaGrid, .securityGrid {
+    grid-template-columns: 1fr;
+  }
 }

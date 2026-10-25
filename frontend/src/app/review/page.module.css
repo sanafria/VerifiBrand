@@ -1,6 +1,7 @@
 /* ==========================================================================
-   BrandLedger - Member 3 Reviewer Gateway CSS
-   Dark Cyber-Glass Theme (#030712, #38bdf8, #10b981, #a855f7)
+   BrandLedger - Reviewer Gateway CSS
+   Warm Ivory, Deep Navy, Restrained Gold, Stone Borders
+   Evidence-Backed Brand Governance & Content Review Workspace
    ========================================================================== */
 
 .container {
@@ -14,13 +15,12 @@
   position: fixed;
   bottom: 24px;
   right: 24px;
-  background: rgba(15, 23, 42, 0.95);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(56, 189, 248, 0.4);
-  color: #f8fafc;
+  background: #1E293B;
+  border: 1px solid rgba(181, 138, 31, 0.35);
+  color: #FFFFFF;
   padding: 12px 20px;
   border-radius: var(--radius-md);
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 0 15px rgba(56, 189, 248, 0.2);
+  box-shadow: 0 10px 25px -5px rgba(30, 41, 59, 0.25);
   display: flex;
   align-items: center;
   gap: 10px;
@@ -41,15 +41,16 @@
   }
 }
 
+/* Warm Ivory Hero Banner */
 .banner {
-  background: linear-gradient(135deg, rgba(30, 41, 59, 0.7) 0%, rgba(15, 23, 42, 0.9) 100%);
+  background: #F7F5EF;
   border: 1px solid var(--border-light);
   border-radius: var(--radius-lg);
   padding: 28px 32px;
   margin-bottom: 24px;
   position: relative;
   overflow: hidden;
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-sm);
 }
 
 .banner::before {
@@ -58,8 +59,8 @@
   top: 0;
   left: 0;
   right: 0;
-  height: 2px;
-  background: linear-gradient(90deg, #38bdf8, #10b981, #a855f7);
+  height: 3px;
+  background: linear-gradient(90deg, var(--brand-forest), var(--brand-gold));
 }
 
 .headerTop {
@@ -75,9 +76,9 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  background: rgba(56, 189, 248, 0.12);
-  border: 1px solid rgba(56, 189, 248, 0.3);
-  color: #38bdf8;
+  background: var(--status-approved-bg);
+  border: 1px solid rgba(27, 77, 62, 0.25);
+  color: var(--brand-forest);
   font-size: 0.75rem;
   font-weight: 700;
   padding: 4px 12px;
@@ -92,19 +93,19 @@
   gap: 6px;
   padding: 6px 14px;
   border-radius: 6px;
-  background: rgba(16, 185, 129, 0.15);
-  color: #34d399;
+  background: #FFFFFF;
+  color: var(--text-secondary);
   font-size: 0.82rem;
-  font-weight: 700;
-  border: 1px solid rgba(16, 185, 129, 0.3);
+  font-weight: 600;
+  border: 1px solid var(--border-light);
   text-decoration: none;
   transition: all 0.2s ease;
 }
 
 .viewPassportsLink:hover {
-  background: rgba(16, 185, 129, 0.25);
-  border-color: #34d399;
-  transform: translateY(-1px);
+  background: var(--bg-card-hover);
+  color: var(--text-primary);
+  border-color: var(--brand-navy);
 }
 
 .title {
@@ -116,20 +117,20 @@
 }
 
 .desc {
-  font-size: 0.94rem;
+  font-size: 0.96rem;
   color: var(--text-secondary);
   line-height: 1.6;
   max-width: 900px;
 }
 
 .presetBtn {
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid var(--border-subtle);
+  background: #FFFFFF;
+  border: 1px solid var(--border-light);
   color: var(--text-primary);
   padding: 6px 12px;
   border-radius: var(--radius-sm);
   font-size: 0.78rem;
-  font-weight: 600;
+  font-weight: 700;
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -138,15 +139,15 @@
 }
 
 .presetBtn:hover {
-  background: rgba(255, 255, 255, 0.1);
-  border-color: #38bdf8;
+  background: var(--bg-card-hover);
+  border-color: var(--brand-navy);
   transform: translateY(-1px);
 }
 
 /* Role Selector Bar */
 .roleSelectorBar {
-  background: var(--bg-card);
-  border: 1px solid var(--border-subtle);
+  background: #FFFFFF;
+  border: 1px solid var(--border-light);
   border-radius: var(--radius-md);
   padding: 14px 20px;
   margin-bottom: 24px;
@@ -155,6 +156,7 @@
   justify-content: space-between;
   gap: 16px;
   flex-wrap: wrap;
+  box-shadow: var(--shadow-sm);
 }
 
 .roleButtons {
@@ -164,7 +166,7 @@
 }
 
 .roleBtn {
-  padding: 8px 14px;
+  padding: 7px 14px;
   border-radius: var(--radius-sm);
   font-size: 0.82rem;
   font-weight: 600;
@@ -184,27 +186,27 @@
 }
 
 .roleBtnActiveReviewer {
-  background: #38bdf8 !important;
-  color: #0a0e17 !important;
-  border-color: #38bdf8 !important;
+  background: var(--brand-forest) !important;
+  color: #FFFFFF !important;
+  border-color: var(--brand-forest) !important;
   font-weight: 700 !important;
-  box-shadow: 0 0 12px rgba(56, 189, 248, 0.3);
+  box-shadow: 0 2px 6px rgba(27, 77, 62, 0.25);
 }
 
 .roleBtnActiveCreator {
-  background: #f43f5e !important;
-  color: #ffffff !important;
-  border-color: #f43f5e !important;
+  background: var(--status-warning-bg) !important;
+  color: var(--status-warning-text) !important;
+  border-color: rgba(146, 64, 14, 0.3) !important;
   font-weight: 700 !important;
-  box-shadow: 0 0 12px rgba(244, 63, 94, 0.3);
+  box-shadow: 0 2px 6px rgba(146, 64, 14, 0.15);
 }
 
 .roleBtnActiveAdmin {
-  background: #a855f7 !important;
-  color: #ffffff !important;
-  border-color: #a855f7 !important;
+  background: var(--brand-navy) !important;
+  color: #FFFFFF !important;
+  border-color: var(--brand-navy) !important;
   font-weight: 700 !important;
-  box-shadow: 0 0 12px rgba(168, 85, 247, 0.3);
+  box-shadow: 0 2px 6px rgba(30, 41, 59, 0.25);
 }
 
 /* Review Grid */
@@ -212,6 +214,7 @@
   display: grid;
   grid-template-columns: 360px 1fr;
   gap: 24px;
+  align-items: start;
 }
 
 @media (max-width: 960px) {
@@ -221,13 +224,14 @@
 }
 
 .queueCard {
-  background: var(--bg-card);
-  border: 1px solid var(--border-subtle);
+  background: #FFFFFF;
+  border: 1px solid var(--border-light);
   border-radius: var(--radius-lg);
   padding: 20px;
   display: flex;
   flex-direction: column;
   gap: 12px;
+  box-shadow: var(--shadow-sm);
 }
 
 .queueItem {
@@ -245,19 +249,20 @@
 }
 
 .queueItemActive {
-  border-color: #38bdf8 !important;
-  background: rgba(56, 189, 248, 0.08) !important;
-  box-shadow: 0 0 15px rgba(56, 189, 248, 0.1);
+  border-color: var(--brand-forest) !important;
+  background: var(--status-approved-bg) !important;
+  box-shadow: 0 0 0 2px rgba(27, 77, 62, 0.12);
 }
 
 .detailCard {
-  background: var(--bg-card);
-  border: 1px solid var(--border-subtle);
+  background: #FFFFFF;
+  border: 1px solid var(--border-light);
   border-radius: var(--radius-lg);
-  padding: 24px;
+  padding: 28px;
   display: flex;
   flex-direction: column;
-  gap: 22px;
+  gap: 24px;
+  box-shadow: var(--shadow-sm);
 }
 
 .detailHeader {
@@ -271,28 +276,28 @@
 }
 
 .contentPreview {
-  background: var(--bg-input);
+  background: var(--bg-surface);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
-  padding: 18px;
+  padding: 18px 20px;
   font-size: 0.95rem;
-  line-height: 1.6;
+  line-height: 1.65;
   color: var(--text-primary);
   font-style: italic;
 }
 
 .passportSuccessCard {
-  background: linear-gradient(135deg, rgba(16, 185, 129, 0.12) 0%, rgba(56, 189, 248, 0.08) 100%);
-  border: 1px solid rgba(16, 185, 129, 0.4);
+  background: var(--status-approved-bg);
+  border: 1px solid rgba(27, 77, 62, 0.3);
   border-radius: var(--radius-md);
   padding: 18px 20px;
-  box-shadow: 0 0 20px rgba(16, 185, 129, 0.15);
+  box-shadow: var(--shadow-sm);
   animation: slideUp 0.3s ease-out;
 }
 
 .inspectBtn {
-  background: #10b981;
-  color: #0a0e17;
+  background: var(--brand-forest);
+  color: #FFFFFF;
   font-weight: 700;
   font-size: 0.84rem;
   padding: 8px 16px;
@@ -305,7 +310,7 @@
 }
 
 .inspectBtn:hover {
-  background: #34d399;
+  background: var(--brand-navy);
   transform: translateY(-1px);
 }
 
@@ -320,8 +325,8 @@
 }
 
 .commentInput {
-  background: var(--bg-input);
-  border: 1px solid var(--border-subtle);
+  background: #FFFFFF;
+  border: 1px solid var(--border-light);
   border-radius: var(--radius-sm);
   padding: 11px 14px;
   color: var(--text-primary);
@@ -332,12 +337,12 @@
 }
 
 .commentInput:focus {
-  border-color: #38bdf8;
+  border-color: var(--brand-navy);
 }
 
 .btnApprove {
-  background: #10b981;
-  color: #0a0e17;
+  background: var(--brand-forest);
+  color: #FFFFFF;
   padding: 12px 20px;
   border-radius: var(--radius-sm);
   font-size: 0.9rem;
@@ -352,20 +357,20 @@
 }
 
 .btnApprove:hover:not(:disabled) {
-  background: #34d399;
+  background: var(--brand-navy);
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+  box-shadow: var(--shadow-md);
 }
 
 .btnApprove:disabled {
-  opacity: 0.5;
+  opacity: 0.45;
   cursor: not-allowed;
 }
 
 .btnReject {
-  background: rgba(244, 63, 94, 0.15);
-  border: 1px solid rgba(244, 63, 94, 0.3);
-  color: #fb7185;
+  background: var(--status-blocked-bg);
+  border: 1px solid rgba(153, 27, 27, 0.3);
+  color: var(--status-blocked-text);
   padding: 12px 20px;
   border-radius: var(--radius-sm);
   font-size: 0.9rem;
@@ -379,7 +384,7 @@
 }
 
 .btnReject:hover:not(:disabled) {
-  background: rgba(244, 63, 94, 0.25);
-  border-color: #fb7185;
+  background: rgba(153, 27, 27, 0.15);
+  border-color: var(--status-blocked-text);
   transform: translateY(-1px);
 }

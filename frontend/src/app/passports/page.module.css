@@ -1,11 +1,11 @@
 /* ==========================================================================
-   BrandLedger - Content Passport & Certificate Verification CSS
-   Dark Cyber-Glass Theme (#030712, #38bdf8, #10b981, #f59e0b)
+   BrandLedger - Content Passport & Governance Record CSS
+   Evidence-Backed Brand Integrity & Content Review Platform
    ========================================================================== */
 
 .container {
   width: 100%;
-  max-width: var(--max-width);
+  max-width: 1400px;
   margin: 0 auto;
   padding: 32px 24px 80px;
 }
@@ -14,13 +14,12 @@
   position: fixed;
   bottom: 24px;
   right: 24px;
-  background: rgba(15, 23, 42, 0.95);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(16, 185, 129, 0.4);
-  color: #f8fafc;
+  background: #1E293B;
+  border: 1px solid rgba(181, 138, 31, 0.35);
+  color: #FFFFFF;
   padding: 12px 20px;
   border-radius: var(--radius-md);
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 0 15px rgba(16, 185, 129, 0.2);
+  box-shadow: 0 10px 25px -5px rgba(30, 41, 59, 0.25);
   display: flex;
   align-items: center;
   gap: 10px;
@@ -41,15 +40,16 @@
   }
 }
 
+/* Hero Header Banner */
 .banner {
-  background: linear-gradient(135deg, rgba(30, 41, 59, 0.7) 0%, rgba(15, 23, 42, 0.9) 100%);
+  background: #F7F5EF;
   border: 1px solid var(--border-light);
   border-radius: var(--radius-lg);
   padding: 28px 32px;
   margin-bottom: 24px;
   position: relative;
   overflow: hidden;
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-sm);
 }
 
 .banner::before {
@@ -58,8 +58,8 @@
   top: 0;
   left: 0;
   right: 0;
-  height: 2px;
-  background: linear-gradient(90deg, #10b981, #38bdf8, #f59e0b);
+  height: 3px;
+  background: linear-gradient(90deg, var(--brand-forest), var(--brand-gold));
 }
 
 .headerTop {
@@ -75,9 +75,9 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  background: rgba(16, 185, 129, 0.12);
-  border: 1px solid rgba(16, 185, 129, 0.3);
-  color: #34d399;
+  background: var(--status-approved-bg);
+  border: 1px solid rgba(27, 77, 62, 0.25);
+  color: var(--brand-forest);
   font-size: 0.75rem;
   font-weight: 700;
   padding: 4px 12px;
@@ -92,58 +92,49 @@
   gap: 6px;
   padding: 6px 14px;
   border-radius: 6px;
-  background: rgba(255, 255, 255, 0.05);
+  background: #FFFFFF;
   color: var(--text-secondary);
   font-size: 0.82rem;
   font-weight: 600;
-  border: 1px solid var(--border-subtle);
+  border: 1px solid var(--border-light);
   text-decoration: none;
   transition: all 0.2s ease;
 }
 
 .backLink:hover {
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--bg-card-hover);
   color: var(--text-primary);
-  border-color: #38bdf8;
+  border-color: var(--brand-navy);
 }
 
 .title {
-  font-size: 1.85rem;
+  font-size: 2rem;
   font-weight: 800;
   letter-spacing: -0.03em;
   color: var(--text-primary);
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
 
 .desc {
-  font-size: 0.94rem;
-  color: var(--text-secondary);
-  line-height: 1.6;
-  max-width: 900px;
-}
-
-.presetBtn {
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid var(--border-subtle);
+  font-size: 1.05rem;
   color: var(--text-primary);
-  padding: 7px 14px;
-  border-radius: var(--radius-sm);
-  font-size: 0.8rem;
-  font-weight: 700;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  cursor: pointer;
-  transition: all 0.15s ease;
+  font-weight: 600;
+  line-height: 1.5;
+  margin-bottom: 10px;
 }
 
-.presetBtn:hover {
-  background: rgba(255, 255, 255, 0.1);
-  border-color: #38bdf8;
-  transform: translateY(-1px);
+.contextBox {
+  background: var(--status-review-bg);
+  border-left: 3px solid var(--brand-navy);
+  padding: 10px 16px;
+  border-radius: 0 6px 6px 0;
+  font-size: 0.88rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  max-width: 1000px;
 }
 
-/* Metric Cards */
+/* Metric / Key Info Grid */
 .metricGrid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -157,6 +148,12 @@
   }
 }
 
+@media (max-width: 540px) {
+  .metricGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
 .metricCard {
   background: var(--bg-card);
   border: 1px solid var(--border-subtle);
@@ -165,6 +162,11 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
+  transition: border-color 0.2s ease;
+}
+
+.metricCard:hover {
+  border-color: var(--border-light);
 }
 
 .metricLabel {
@@ -176,29 +178,31 @@
 }
 
 .metricVal {
-  font-size: 1.6rem;
+  font-size: 1.45rem;
   font-weight: 900;
   letter-spacing: -0.02em;
 }
 
 .metricSub {
-  font-size: 0.74rem;
+  font-size: 0.76rem;
   color: var(--text-muted);
 }
 
-/* Main Grid */
+/* Main Two-Column Grid */
 .mainGrid {
   display: grid;
-  grid-template-columns: 360px 1fr;
+  grid-template-columns: 380px 1fr;
   gap: 24px;
+  align-items: start;
 }
 
-@media (max-width: 960px) {
+@media (max-width: 1024px) {
   .mainGrid {
     grid-template-columns: 1fr;
   }
 }
 
+/* Left: Passport Registry */
 .listCard {
   background: var(--bg-card);
   border: 1px solid var(--border-subtle);
@@ -224,21 +228,21 @@
 }
 
 .passportItemActive {
-  border-color: #10b981 !important;
-  background: rgba(16, 185, 129, 0.08) !important;
-  box-shadow: 0 0 15px rgba(16, 185, 129, 0.1);
+  border-color: var(--brand-forest) !important;
+  background: var(--status-approved-bg) !important;
+  box-shadow: 0 0 0 2px rgba(27, 77, 62, 0.1);
 }
 
-/* Certificate Card with Watermark */
+/* Right: Content Passport Detail Workspace */
 .certificateCard {
-  background: linear-gradient(135deg, rgba(15, 23, 42, 0.9) 0%, rgba(3, 7, 18, 0.98) 100%);
-  border: 1px solid rgba(245, 158, 11, 0.35);
+  background: #FFFFFF;
+  border: 1px solid var(--border-light);
   border-radius: var(--radius-lg);
   padding: 32px;
   display: flex;
   flex-direction: column;
-  gap: 24px;
-  box-shadow: 0 12px 35px -10px rgba(0, 0, 0, 0.6), 0 0 20px rgba(245, 158, 11, 0.08);
+  gap: 28px;
+  box-shadow: var(--shadow-md);
   position: relative;
   overflow: hidden;
 }
@@ -250,26 +254,27 @@
   left: 0;
   right: 0;
   height: 3px;
-  background: linear-gradient(90deg, #f59e0b, #10b981, #38bdf8);
+  background: linear-gradient(90deg, var(--brand-gold), var(--brand-forest));
 }
 
 .watermarkContainer {
   position: absolute;
   top: 24px;
   right: 32px;
-  opacity: 0.18;
+  opacity: 0.14;
   pointer-events: none;
   transform: rotate(8deg);
   transition: opacity 0.3s ease;
 }
 
 .certificateCard:hover .watermarkContainer {
-  opacity: 0.3;
+  opacity: 0.24;
 }
 
+/* Passport Header */
 .certHeader {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   border-bottom: 1px solid var(--border-subtle);
   padding-bottom: 20px;
@@ -283,28 +288,28 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  background: rgba(16, 185, 129, 0.15);
-  border: 1px solid rgba(16, 185, 129, 0.45);
-  color: #34d399;
+  background: var(--status-approved-bg);
+  border: 1px solid rgba(27, 77, 62, 0.3);
+  color: var(--status-approved-text);
   font-size: 0.84rem;
   font-weight: 800;
-  padding: 8px 18px;
+  padding: 8px 16px;
   border-radius: 20px;
-  box-shadow: 0 0 16px rgba(16, 185, 129, 0.25);
+  box-shadow: none;
 }
 
 .tamperBadge {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  background: rgba(244, 63, 94, 0.18);
-  border: 1px solid rgba(244, 63, 94, 0.55);
-  color: #fb7185;
+  background: var(--status-blocked-bg);
+  border: 1px solid rgba(153, 27, 27, 0.35);
+  color: var(--status-blocked-text);
   font-size: 0.84rem;
   font-weight: 800;
-  padding: 8px 18px;
+  padding: 8px 16px;
   border-radius: 20px;
-  box-shadow: 0 0 20px rgba(244, 63, 94, 0.35);
+  box-shadow: none;
   animation: pulse 1.5s infinite;
 }
 
@@ -314,54 +319,34 @@
   100% { transform: scale(1); }
 }
 
-.hashBar {
-  background: rgba(0, 0, 0, 0.45);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
-  padding: 14px 18px;
+/* Section Header Typography */
+.sectionHeaderRow {
   display: flex;
-  flex-direction: column;
-  gap: 6px;
-  position: relative;
-  z-index: 2;
-}
-
-.hashCode {
-  font-size: 0.84rem;
-  font-family: monospace;
-  color: #38bdf8;
-  letter-spacing: 0.05em;
-  word-break: break-all;
-  font-weight: 700;
-}
-
-.actionIconBtn {
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid var(--border-subtle);
-  color: var(--text-secondary);
-  padding: 5px 10px;
-  border-radius: 4px;
-  cursor: pointer;
-  display: inline-flex;
   align-items: center;
-  gap: 5px;
-  transition: all 0.15s ease;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
-.actionIconBtn:hover {
-  background: rgba(255, 255, 255, 0.12);
+.sectionTitle {
+  font-size: 0.94rem;
+  font-weight: 800;
   color: var(--text-primary);
-  border-color: #38bdf8;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  letter-spacing: -0.01em;
 }
 
-.tamperComparisonBox {
-  background: rgba(244, 63, 94, 0.08);
-  border: 1px solid rgba(244, 63, 94, 0.35);
-  border-radius: var(--radius-md);
-  padding: 16px 20px;
-  animation: slideUp 0.3s ease-out;
+.sectionSubtitle {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+  margin-top: 2px;
 }
 
+/* Approved Content Snapshot */
 .contentBox {
   background: var(--bg-input);
   border: 1px solid var(--border-subtle);
@@ -377,71 +362,340 @@
 }
 
 .contentBoxTampered {
-  border-color: #f43f5e !important;
-  background: rgba(244, 63, 94, 0.1) !important;
-  color: #fda4af !important;
-  box-shadow: 0 0 15px rgba(244, 63, 94, 0.2);
+  border-color: var(--status-blocked-text) !important;
+  background: var(--status-blocked-bg) !important;
+  color: var(--status-blocked-text) !important;
+  box-shadow: 0 0 0 2px rgba(153, 27, 27, 0.15);
 }
 
-.metadataGrid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 14px;
-  background: rgba(255, 255, 255, 0.02);
+/* Review Summary & Findings Cards */
+.reviewStatsPills {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.statPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: var(--radius-full);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.statPillReviewed {
+  background: var(--status-review-bg);
+  border: 1px solid rgba(30, 64, 175, 0.2);
+  color: var(--status-review-text);
+}
+
+.statPillApplied {
+  background: var(--status-approved-bg);
+  border: 1px solid rgba(27, 77, 62, 0.25);
+  color: var(--status-approved-text);
+}
+
+.statPillOverride {
+  background: var(--status-warning-bg);
+  border: 1px solid rgba(146, 64, 14, 0.2);
+  color: var(--status-warning-text);
+}
+
+.findingsList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  position: relative;
+  z-index: 2;
+}
+
+.findingCard {
+  background: var(--bg-surface);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
-  padding: 18px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  transition: all 0.2s ease;
+}
+
+.findingCard:hover {
+  border-color: var(--border-light);
+  background: var(--bg-card-hover);
+}
+
+.findingTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.findingTitle {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.badgeResolved {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  padding: 3px 10px;
+  border-radius: 4px;
+  background: var(--status-approved-bg);
+  border: 1px solid rgba(27, 77, 62, 0.3);
+  color: var(--status-approved-text);
+  text-transform: uppercase;
+}
+
+.badgeOverride {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  padding: 3px 10px;
+  border-radius: 4px;
+  background: var(--status-warning-bg);
+  border: 1px solid rgba(146, 64, 14, 0.25);
+  color: var(--status-warning-text);
+  text-transform: uppercase;
+}
+
+.findingPolicyTag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.74rem;
+  font-family: monospace;
+  font-weight: 600;
+  color: var(--brand-navy-light);
+  background: var(--status-review-bg);
+  padding: 2px 8px;
+  border-radius: 4px;
+  border: 1px solid rgba(30, 64, 175, 0.15);
+}
+
+.findingDetail {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+/* Evidence Grid */
+.evidenceGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
   position: relative;
   z-index: 2;
 }
 
 @media (max-width: 640px) {
-  .metadataGrid {
+  .evidenceGrid {
     grid-template-columns: 1fr;
   }
 }
 
-.metaCell {
+.evidenceCard {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 14px 16px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
 }
 
-.metaLabel {
+.evidenceTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.evidenceName {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.evidenceVersion {
   font-size: 0.72rem;
-  font-weight: 800;
-  text-transform: uppercase;
+  font-family: monospace;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--status-warning-bg);
+  color: var(--status-warning-text);
+  border: 1px solid rgba(146, 64, 14, 0.2);
+}
+
+.evidenceAuthority {
+  font-size: 0.76rem;
   color: var(--text-muted);
 }
 
-.metaValue {
-  font-size: 0.88rem;
-  color: var(--text-primary);
-  font-weight: 600;
-}
-
-.metaCode {
-  font-size: 0.78rem;
-  font-family: monospace;
-  color: #38bdf8;
-}
-
-.tamperPanel {
-  background: rgba(0, 0, 0, 0.4);
-  border: 1px solid var(--border-light);
+/* Reviewer Decision Box */
+.reviewerDecisionCard {
+  background: var(--status-approved-bg);
+  border: 1px solid rgba(27, 77, 62, 0.2);
   border-radius: var(--radius-md);
-  padding: 20px 22px;
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
   position: relative;
   z-index: 2;
 }
 
-.tamperBtn {
-  background: rgba(244, 63, 94, 0.15);
-  border: 1px solid rgba(244, 63, 94, 0.4);
-  color: #fb7185;
-  font-size: 0.84rem;
+.reviewerTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.reviewerInfo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.reviewerAvatar {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: rgba(27, 77, 62, 0.15);
+  border: 1px solid rgba(27, 77, 62, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--brand-forest);
   font-weight: 800;
-  padding: 9px 18px;
+  font-size: 0.95rem;
+}
+
+.reviewerNote {
+  font-size: 0.86rem;
+  color: var(--text-primary);
+  font-style: italic;
+  line-height: 1.5;
+  background: rgba(255, 255, 255, 0.7);
+  padding: 10px 14px;
+  border-radius: 6px;
+  border-left: 2px solid var(--brand-forest);
+}
+
+/* Secondary Collapsible: Technical Integrity Details */
+.technicalToggleBtn {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 14px 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  color: var(--text-primary);
+  width: 100%;
+  transition: all 0.2s ease;
+  position: relative;
+  z-index: 2;
+}
+
+.technicalToggleBtn:hover {
+  background: var(--bg-card-hover);
+  border-color: var(--brand-navy);
+}
+
+.technicalPanel {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  position: relative;
+  z-index: 2;
+  animation: slideUp 0.25s ease-out;
+}
+
+.hashBar {
+  background: #FFFFFF;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  padding: 14px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.hashCode {
+  font-size: 0.84rem;
+  font-family: monospace;
+  color: var(--brand-navy-light);
+  letter-spacing: 0.05em;
+  word-break: break-all;
+  font-weight: 700;
+}
+
+.actionIconBtn {
+  background: #FFFFFF;
+  border: 1px solid var(--border-light);
+  color: var(--text-secondary);
+  padding: 5px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.15s ease;
+  font-size: 0.76rem;
+  font-weight: 600;
+}
+
+.actionIconBtn:hover {
+  background: var(--bg-card-hover);
+  color: var(--text-primary);
+  border-color: var(--brand-navy);
+}
+
+.tamperComparisonBox {
+  background: var(--status-blocked-bg);
+  border: 1px solid rgba(153, 27, 27, 0.25);
+  border-radius: var(--radius-md);
+  padding: 16px 20px;
+  animation: slideUp 0.3s ease-out;
+}
+
+.tamperPanel {
+  background: #FFFFFF;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  padding: 18px 20px;
+}
+
+.tamperBtn {
+  background: var(--status-blocked-bg);
+  border: 1px solid rgba(153, 27, 27, 0.3);
+  color: var(--status-blocked-text);
+  font-size: 0.82rem;
+  font-weight: 800;
+  padding: 8px 16px;
   border-radius: var(--radius-sm);
   display: inline-flex;
   align-items: center;
@@ -451,17 +705,17 @@
 }
 
 .tamperBtn:hover:not(:disabled) {
-  background: rgba(244, 63, 94, 0.25);
+  background: rgba(153, 27, 27, 0.12);
   transform: translateY(-1px);
-  box-shadow: 0 4px 14px rgba(244, 63, 94, 0.25);
+  box-shadow: var(--shadow-sm);
 }
 
 .restoreBtn {
-  background: #10b981;
-  color: #0a0e17;
-  font-size: 0.84rem;
+  background: var(--brand-forest);
+  color: #FFFFFF;
+  font-size: 0.82rem;
   font-weight: 800;
-  padding: 9px 18px;
+  padding: 8px 16px;
   border-radius: var(--radius-sm);
   display: inline-flex;
   align-items: center;
@@ -472,7 +726,27 @@
 }
 
 .restoreBtn:hover:not(:disabled) {
-  background: #34d399;
+  background: var(--brand-navy);
   transform: translateY(-1px);
-  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.3);
+  box-shadow: var(--shadow-md);
+}
+
+.presetBtn {
+  background: #FFFFFF;
+  border: 1px solid var(--border-light);
+  color: var(--text-primary);
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 0.78rem;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.presetBtn:hover {
+  background: var(--bg-card-hover);
+  border-color: var(--brand-navy);
 }

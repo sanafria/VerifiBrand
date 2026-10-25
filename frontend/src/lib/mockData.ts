@@ -2,7 +2,7 @@
  * Brand Ledger - Seed Policy Data
  * 
  * Directly aligned with fixtures in backend/tests/conftest.py to ensure 100%
- * compatibility with Zynab's rules engine (Member 4) and backend test cases.
+ * compatibility with the compliance rules engine and backend test cases.
  */
 
 import type { PolicyCard, BrandProfile } from '../types/policy.ts';

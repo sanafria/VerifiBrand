@@ -23,7 +23,7 @@ const INITIAL_LOGS: AuditLogItem[] = [
   {
     id: 'aud_108',
     action: 'PASSPORT_MINTED',
-    actor: 'Zoya Nadeem (Reviewer)',
+    actor: 'Jordan Blake (Reviewer)',
     targetId: 'pass_2026_demo_01',
     timestamp: '2026-07-01T14:32:05Z',
     details: 'Issued Content Passport for approved campaign copy: "Our Members can access standard pricing today!"',
@@ -33,7 +33,7 @@ const INITIAL_LOGS: AuditLogItem[] = [
   {
     id: 'aud_107',
     action: 'REVIEW_APPROVED',
-    actor: 'Zoya Nadeem (Reviewer: M3)',
+    actor: 'Jordan Blake (Reviewer)',
     targetId: 'drft_2026_demo',
     timestamp: '2026-07-01T14:31:50Z',
     details: 'Formal reviewer sign-off granted with comment: "Approved for publication across digital channels."',
@@ -41,7 +41,7 @@ const INITIAL_LOGS: AuditLogItem[] = [
   {
     id: 'aud_106',
     action: 'SCAN_EXECUTED',
-    actor: 'Sana Fria (Creator: M1)',
+    actor: 'Alex Kim (Creator)',
     targetId: 'drft_2026_demo (Rescan)',
     timestamp: '2026-07-01T14:30:12Z',
     details: 'Rescan completed with 0 findings, 0 blockers. Status: COMPLIANT.',
@@ -51,7 +51,7 @@ const INITIAL_LOGS: AuditLogItem[] = [
   {
     id: 'aud_105',
     action: 'SCAN_EXECUTED',
-    actor: 'Sana Fria (Creator: M1)',
+    actor: 'Alex Kim (Creator)',
     targetId: 'drft_2026_demo',
     timestamp: '2026-07-01T14:28:40Z',
     details: 'Initial scan flagged 2 blockers: pol_term_001 (disallowed "customers") and pol_offer_002 (expired "Summer Discount").',
@@ -59,7 +59,7 @@ const INITIAL_LOGS: AuditLogItem[] = [
   {
     id: 'aud_104',
     action: 'POLICY_VERSION_INCREMENT',
-    actor: 'Nimra Tariq (Governance: M2)',
+    actor: 'Morgan Lee (Governance)',
     targetId: 'pol_term_001',
     timestamp: '2026-06-15T09:12:00Z',
     details: 'Incremented policy card to v1.0 snapshot with rule evidence: "The brand prohibits the term Customers and requires the term Members".',
@@ -125,7 +125,7 @@ export default function AuditPage() {
 
         <h1 className={styles.title}>Brand Governance Audit Trail</h1>
         <p className={styles.desc}>
-          Chronological, tamper-evident ledger tracking every scan evaluation, policy version snapshot, human review approval gate, and SHA-256 Content Passport minted in BrandLedger.
+          Chronological, tamper-evident ledger tracking every scan evaluation, policy version snapshot, human review approval gate, and SHA-256 Content Passport minted in VerifiBrand.
         </p>
       </div>
 

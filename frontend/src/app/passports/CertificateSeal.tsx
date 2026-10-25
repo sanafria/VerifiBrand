@@ -8,10 +8,10 @@ interface CertificateSealProps {
 }
 
 export const CertificateSeal: React.FC<CertificateSealProps> = ({ verified, size = 110 }) => {
-  const goldColor = verified ? '#f59e0b' : '#ef4444';
-  const glowColor = verified ? 'rgba(245, 158, 11, 0.4)' : 'rgba(239, 68, 68, 0.4)';
-  const cyanColor = verified ? '#38bdf8' : '#fb7185';
-  const emeraldColor = verified ? '#10b981' : '#f43f5e';
+  const goldColor = verified ? '#B58A1F' : '#991B1B';
+  const glowColor = verified ? 'rgba(181, 138, 31, 0.18)' : 'rgba(153, 27, 27, 0.18)';
+  const navyColor = verified ? '#1E293B' : '#7F1D1D';
+  const forestColor = verified ? '#1B4D3E' : '#991B1B';
 
   return (
     <div style={{
@@ -21,7 +21,7 @@ export const CertificateSeal: React.FC<CertificateSealProps> = ({ verified, size
       display: 'inline-flex',
       alignItems: 'center',
       justifyContent: 'center',
-      filter: `drop-shadow(0 0 16px ${glowColor})`,
+      filter: `drop-shadow(0 2px 10px ${glowColor})`,
       transition: 'all 0.4s ease',
     }}>
       <svg
@@ -33,17 +33,17 @@ export const CertificateSeal: React.FC<CertificateSealProps> = ({ verified, size
         style={{ overflow: 'visible' }}
       >
         <defs>
-          {/* Radial Gradients */}
+          {/* Subtle Warm Gradient */}
           <radialGradient id={`sealGlow-${verified ? 'v' : 't'}`} cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stopColor={goldColor} stopOpacity="0.25" />
-            <stop offset="70%" stopColor={emeraldColor} stopOpacity="0.1" />
+            <stop offset="0%" stopColor={goldColor} stopOpacity="0.16" />
+            <stop offset="70%" stopColor={forestColor} stopOpacity="0.06" />
             <stop offset="100%" stopColor="transparent" />
           </radialGradient>
 
           <linearGradient id={`goldBorder-${verified ? 'v' : 't'}`} x1="0" y1="0" x2="200" y2="200">
             <stop offset="0%" stopColor={goldColor} />
-            <stop offset="50%" stopColor={cyanColor} />
-            <stop offset="100%" stopColor={emeraldColor} />
+            <stop offset="50%" stopColor="#D4A373" />
+            <stop offset="100%" stopColor={forestColor} />
           </linearGradient>
 
           {/* Text Path Circle */}
@@ -73,20 +73,20 @@ export const CertificateSeal: React.FC<CertificateSealProps> = ({ verified, size
           r="76"
           stroke={goldColor}
           strokeWidth="1.5"
-          opacity="0.8"
+          opacity="0.85"
         />
         <circle
           cx="100"
           cy="100"
           r="66"
-          stroke={cyanColor}
+          stroke={navyColor}
           strokeWidth="1.2"
-          opacity="0.7"
+          opacity="0.6"
         />
 
         {/* Circular Text */}
         <text
-          fill={verified ? '#fde68a' : '#fca5a5'}
+          fill={verified ? '#1B4D3E' : '#991B1B'}
           fontSize="9.5"
           fontWeight="800"
           letterSpacing="2.8"
@@ -98,17 +98,17 @@ export const CertificateSeal: React.FC<CertificateSealProps> = ({ verified, size
             textAnchor="middle"
           >
             {verified
-              ? '• BRANDLEDGER • CERTIFIED AUTHENTIC •'
+              ? '• VERIFIBRAND • CERTIFIED AUTHENTIC •'
               : '• INTEGRITY BREACH • TAMPER DETECTED •'}
           </textPath>
         </text>
 
-        {/* Inner Solid Badge */}
+        {/* Inner Solid Badge - Warm Ivory & Paper texture feel */}
         <circle
           cx="100"
           cy="100"
           r="54"
-          fill="#0a0f1d"
+          fill="#FAF8F3"
           stroke={`url(#goldBorder-${verified ? 'v' : 't'})`}
           strokeWidth="2"
         />
@@ -119,15 +119,15 @@ export const CertificateSeal: React.FC<CertificateSealProps> = ({ verified, size
             {/* Shield Outline */}
             <path
               d="M24 4 L42 10 V24 C42 35 24 44 24 44 C24 44 6 35 6 24 V10 Z"
-              fill="rgba(16, 185, 129, 0.2)"
-              stroke="#34d399"
+              fill="rgba(27, 77, 62, 0.12)"
+              stroke="#1B4D3E"
               strokeWidth="2.5"
               strokeLinejoin="round"
             />
             {/* Checkmark */}
             <path
               d="M16 23 L22 29 L32 17"
-              stroke="#fde68a"
+              stroke="#B58A1F"
               strokeWidth="3.2"
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -138,15 +138,15 @@ export const CertificateSeal: React.FC<CertificateSealProps> = ({ verified, size
             {/* Warning Shield */}
             <path
               d="M24 4 L42 10 V24 C42 35 24 44 24 44 C24 44 6 35 6 24 V10 Z"
-              fill="rgba(244, 63, 94, 0.25)"
-              stroke="#f43f5e"
+              fill="rgba(153, 27, 27, 0.12)"
+              stroke="#991B1B"
               strokeWidth="2.5"
               strokeLinejoin="round"
             />
             {/* Exclamation */}
             <path
               d="M24 16 V27 M24 33 H24.02"
-              stroke="#ffffff"
+              stroke="#991B1B"
               strokeWidth="3.5"
               strokeLinecap="round"
             />
@@ -158,12 +158,12 @@ export const CertificateSeal: React.FC<CertificateSealProps> = ({ verified, size
           x="100"
           y="142"
           textAnchor="middle"
-          fill={verified ? '#34d399' : '#f87171'}
+          fill={verified ? '#1B4D3E' : '#991B1B'}
           fontSize="7"
           fontWeight="800"
           letterSpacing="1"
         >
-          {verified ? 'SHA-256 OK' : 'MISMATCH'}
+          {verified ? 'VERIFIED OK' : 'MISMATCH'}
         </text>
       </svg>
     </div>
