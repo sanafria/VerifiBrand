@@ -9,7 +9,8 @@ Ensures every finding is traceable to approved policy evidence by verifying:
 """
 
 import re
-from typing import Optional
+from typing import List, Optional
+from pydantic import BaseModel
 from backend.app.schemas.finding import Finding, FindingCategory
 from backend.app.schemas.policy import PolicyCard
 
@@ -188,3 +189,81 @@ def filter_and_verify_findings(
             continue
 
     return verified_findings
+
+
+class VerificationDetail(BaseModel):
+    """Machine-readable verification detail for an individual finding."""
+    finding_category: str
+    matched_text: str
+    policy_card_id: str
+    policy_version: str
+    is_verified: bool
+    rejection_reason: Optional[str] = None
+    source_quote: str
+
+
+class EvidenceVerificationReport(BaseModel):
+    """Machine-readable aggregate evidence verification report."""
+    total_findings: int
+    verified_count: int
+    rejected_count: int
+    is_fully_verified: bool
+    details: List[VerificationDetail]
+
+
+def verify_findings_with_report(
+    findings: list[Finding],
+    policy_cards: list[PolicyCard],
+) -> tuple[list[Finding], EvidenceVerificationReport]:
+    """Verify all findings against approved policy evidence and return validated findings
+    along with a machine-readable verification report detailing verification status and
+    rejection reasons for any invalid or unverified citations.
+    """
+    verified_findings: list[Finding] = []
+    details: list[VerificationDetail] = []
+    cards_by_id = {card.id: card for card in policy_cards}
+
+    for finding in findings:
+        is_valid, reason = verify_finding(finding, cards_by_id)
+        if is_valid:
+            if finding.category == FindingCategory.UNSUPPORTED_CLAIM.value:
+                verified_findings.append(finding.model_copy(update={"is_verified": False}))
+                details.append(VerificationDetail(
+                    finding_category=finding.category,
+                    matched_text=finding.matched_text,
+                    policy_card_id=finding.policy_card_id,
+                    policy_version=finding.policy_version,
+                    is_verified=False,
+                    rejection_reason="Claim lacks evidence in draft; flagged as unverified claim.",
+                    source_quote=finding.source_quote,
+                ))
+            else:
+                verified_findings.append(finding.model_copy(update={"is_verified": True}))
+                details.append(VerificationDetail(
+                    finding_category=finding.category,
+                    matched_text=finding.matched_text,
+                    policy_card_id=finding.policy_card_id,
+                    policy_version=finding.policy_version,
+                    is_verified=True,
+                    rejection_reason=None,
+                    source_quote=finding.source_quote,
+                ))
+        else:
+            details.append(VerificationDetail(
+                finding_category=finding.category,
+                matched_text=finding.matched_text,
+                policy_card_id=finding.policy_card_id,
+                policy_version=finding.policy_version,
+                is_verified=False,
+                rejection_reason=reason,
+                source_quote=finding.source_quote,
+            ))
+
+    report = EvidenceVerificationReport(
+        total_findings=len(findings),
+        verified_count=len(verified_findings),
+        rejected_count=len(findings) - len(verified_findings),
+        is_fully_verified=len(verified_findings) == len(findings),
+        details=details,
+    )
+    return verified_findings, report
