@@ -7,9 +7,8 @@
  * 3. Enforcing "No receipt, no flag" quote integrity checks
  * 
  * Architecture:
- * - Direct REST integration with FastAPI backend when endpoints are deployed
- * - Development persistence adapter (localStorage + in-memory fallback) when
- *   backend persistence is unavailable
+ * - Direct REST integration with FastAPI backend when NEXT_PUBLIC_USE_BACKEND_CRUD=true
+ * - Development persistence adapter (localStorage + in-memory fallback) for offline & testing
  */
 
 import type { PolicyCard, PolicyFilterState, BrandProfile } from '../../types/policy.ts';
@@ -18,7 +17,27 @@ import { INITIAL_POLICY_CARDS, INITIAL_BRAND_PROFILES } from '../mockData.ts';
 const STORAGE_KEY_POLICIES = 'brandledger_policies_v1';
 const STORAGE_KEY_BRANDS = 'brandledger_brands_v1';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL !== undefined ? process.env.NEXT_PUBLIC_API_URL : (typeof window !== 'undefined' ? '' : 'http://127.0.0.1:8000');
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL !== undefined 
+  ? process.env.NEXT_PUBLIC_API_URL 
+  : (typeof window !== 'undefined' ? '' : 'http://127.0.0.1:8000');
+
+function mapCategoryToCardType(category?: string): 'terminology' | 'offer' | 'fact' | 'claim' | 'tone' {
+  const norm = (category || '').toLowerCase().trim();
+  if (norm === 'offer_validity' || norm === 'offer') return 'offer';
+  if (norm === 'numerical' || norm === 'fact') return 'fact';
+  if (norm === 'claims' || norm === 'claim') return 'claim';
+  if (norm === 'tone' || norm === 'voice_tone') return 'tone';
+  return 'terminology';
+}
+
+function mapCardTypeToCategory(cardType?: string): string {
+  const norm = (cardType || '').toLowerCase().trim();
+  if (norm === 'offer') return 'offer_validity';
+  if (norm === 'fact') return 'numerical';
+  if (norm === 'claim') return 'claims';
+  if (norm === 'tone') return 'tone';
+  return norm || 'terminology';
+}
 
 class PolicyClient {
   private inMemoryPolicies: PolicyCard[] = [...INITIAL_POLICY_CARDS];
@@ -92,36 +111,80 @@ class PolicyClient {
     total: number;
     dataSource: 'backend_api' | 'dev_adapter';
   }> {
-    // Attempt real backend call if configured or available
-    if (process.env.NEXT_PUBLIC_USE_BACKEND_CRUD === 'true' || API_BASE_URL) {
+    // Attempt real backend call when explicitly enabled
+    if (process.env.NEXT_PUBLIC_USE_BACKEND_CRUD === 'true') {
       try {
-        const res = await fetch(`${API_BASE_URL}/api/policies`, {
+        const queryParams = new URLSearchParams();
+        if (filters?.category && filters.category !== 'all') {
+          queryParams.set('card_type', mapCategoryToCardType(filters.category));
+        }
+        if (filters?.status && filters.status !== 'all') {
+          const st = filters.status === 'approved' ? 'active' : (filters.status === 'archived' ? 'inactive' : filters.status);
+          queryParams.set('status', st);
+        }
+        const qs = queryParams.toString();
+        const url = `${API_BASE_URL}/api/policies${qs ? `?${qs}` : ''}`;
+        const res = await fetch(url, {
           headers: { 'Content-Type': 'application/json' },
           cache: 'no-store'
         });
         if (res.ok) {
           const data = await res.json();
           const rawItems = Array.isArray(data) ? data : (data.items || []);
-          const normalized: PolicyCard[] = rawItems.map((item: any) => ({
+          let normalized: PolicyCard[] = rawItems.map((item: any) => ({
             id: String(item.id || ''),
             version: String(item.version || '1'),
             title: item.title || '',
-            category: item.card_type || item.category || 'terminology',
+            category: mapCardTypeToCategory(item.card_type || item.category),
             content: item.rule_text || item.content || '',
-            rules: Array.isArray(item.rules) ? item.rules : [],
+            rules: Array.isArray(item.rules) && item.rules.length > 0 ? item.rules : (
+              item.card_type === 'terminology' && item.source_quote ? [{
+                type: 'terminology',
+                prohibited: item.source_quote,
+                replacement: item.approved_value || '',
+                quote: item.source_quote
+              }] : []
+            ),
             metadata: {
               ...(typeof item.metadata === 'object' ? item.metadata : {}),
               source_quote: item.source_quote || '',
               approved_value: item.approved_value || '',
+              quote: item.source_quote || '',
+              brand_id: item.brand_id || 'brand_apex_health',
+              status: item.status === 'active' ? 'approved' : item.status === 'inactive' ? 'archived' : 'approved',
             },
-            status: item.status === 'active' ? 'approved' : (item.status || 'approved'),
+            status: item.status === 'active' ? 'approved' : (item.status === 'inactive' ? 'archived' : (item.status || 'approved')),
             created_at: item.created_at,
             updated_at: item.updated_at,
           }));
+
+          // In-memory filter for search query
+          if (filters?.searchQuery && filters.searchQuery.trim()) {
+            const query = filters.searchQuery.toLowerCase().trim();
+            normalized = normalized.filter(
+              p =>
+                p.title.toLowerCase().includes(query) ||
+                p.id.toLowerCase().includes(query) ||
+                p.content.toLowerCase().includes(query) ||
+                (p.metadata.author && String(p.metadata.author).toLowerCase().includes(query)) ||
+                (p.metadata.prohibited_terms && JSON.stringify(p.metadata.prohibited_terms).toLowerCase().includes(query))
+            );
+          }
+
+          if (filters?.sortBy) {
+            if (filters.sortBy === 'title_asc') {
+              normalized.sort((a, b) => a.title.localeCompare(b.title));
+            } else if (filters.sortBy === 'version_desc') {
+              normalized.sort((a, b) => b.version.localeCompare(a.version));
+            } else if (filters.sortBy === 'updated_desc') {
+              normalized.sort((a, b) => (b.updated_at || '').localeCompare(a.updated_at || ''));
+            }
+          }
+
           return { policies: normalized, total: normalized.length, dataSource: 'backend_api' };
         }
-      } catch {
-        // Fall back gracefully to development store
+      } catch (err) {
+        console.warn('Backend policy request failed, falling back to local adapter:', err);
       }
     }
 
@@ -183,7 +246,7 @@ class PolicyClient {
    * Create a new approved or draft policy.
    */
   public async createPolicy(newPolicy: Omit<PolicyCard, 'created_at' | 'updated_at'>): Promise<PolicyCard> {
-    // 1. Check ID uniqueness
+    // 1. Check ID uniqueness in local memory
     if (this.inMemoryPolicies.some(p => p.id === newPolicy.id)) {
       throw new Error(`Policy ID '${newPolicy.id}' already exists. Policy identifiers must be unique.`);
     }
@@ -194,6 +257,67 @@ class PolicyClient {
       const check = this.verifyQuoteIntegrity(newPolicy.content, quote);
       if (!check.isValid) {
         throw new Error(check.error);
+      }
+    }
+
+    // Live Backend Call when NEXT_PUBLIC_USE_BACKEND_CRUD is true
+    if (process.env.NEXT_PUBLIC_USE_BACKEND_CRUD === 'true') {
+      try {
+        const cardType = mapCategoryToCardType(newPolicy.category);
+        const approvedVal = (newPolicy.metadata?.approved_value as string) 
+          || (newPolicy.rules?.[0] as any)?.replacement 
+          || (newPolicy.metadata?.prohibited_terms?.[0]?.replacement) 
+          || '';
+        const sourceQuote = quote || (newPolicy.rules?.[0] as any)?.quote || newPolicy.content;
+
+        const payload = {
+          title: newPolicy.title,
+          card_type: cardType,
+          rule_text: newPolicy.content,
+          approved_value: approvedVal || null,
+          source_quote: sourceQuote,
+          valid_from: (newPolicy.metadata?.valid_from as string) || null,
+          valid_until: (newPolicy.metadata?.valid_until as string) || (newPolicy.rules?.[0] as any)?.valid_until || null,
+          severity: (newPolicy.metadata?.severity as string) || 'blocker'
+        };
+
+        const res = await fetch(`${API_BASE_URL}/api/policies`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.detail || `Backend error: status ${res.status}`);
+        }
+
+        const data = await res.json();
+        const created: PolicyCard = {
+          id: String(data.id || newPolicy.id),
+          version: String(data.version || '1'),
+          title: data.title || newPolicy.title,
+          category: mapCardTypeToCategory(data.card_type || newPolicy.category),
+          content: data.rule_text || newPolicy.content,
+          rules: newPolicy.rules || [],
+          metadata: {
+            ...newPolicy.metadata,
+            source_quote: data.source_quote || sourceQuote,
+            approved_value: data.approved_value || approvedVal,
+            quote: data.source_quote || sourceQuote,
+            status: 'approved'
+          },
+          status: 'approved',
+          created_at: data.created_at || new Date().toISOString(),
+          updated_at: data.updated_at || new Date().toISOString()
+        };
+
+        this.inMemoryPolicies.unshift(created);
+        this.persistPolicies();
+        return created;
+      } catch (err) {
+        console.error('Failed to create policy on backend:', err);
+        throw err;
       }
     }
 
@@ -251,6 +375,43 @@ class PolicyClient {
    * Archive a policy.
    */
   public async archivePolicy(id: string): Promise<PolicyCard> {
+    // When backend CRUD is enabled, persist archival to FastAPI backend
+    if (process.env.NEXT_PUBLIC_USE_BACKEND_CRUD === 'true') {
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/policies/${id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: 'inactive' })
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const idx = this.inMemoryPolicies.findIndex(p => p.id === id);
+          if (idx !== -1) {
+            this.inMemoryPolicies[idx] = {
+              ...this.inMemoryPolicies[idx],
+              status: 'archived',
+              updated_at: data.updated_at || new Date().toISOString()
+            };
+            this.persistPolicies();
+            return this.inMemoryPolicies[idx];
+          }
+          return {
+            id: String(data.id),
+            version: String(data.version),
+            title: data.title,
+            category: mapCardTypeToCategory(data.card_type),
+            content: data.rule_text,
+            rules: [],
+            metadata: { source_quote: data.source_quote },
+            status: 'archived',
+            created_at: data.created_at,
+            updated_at: data.updated_at
+          };
+        }
+      } catch (err) {
+        console.warn(`Backend archive failed for ${id}, updating local state:`, err);
+      }
+    }
     return this.updatePolicy(id, { status: 'archived' });
   }
 

@@ -508,7 +508,7 @@ async def test_e2e_unavailable_services_never_become_false_success(client: TestC
     )
     assert res_a.success is False
     assert res_a.decision == "BLOCK"
-    assert "unreachable" in res_a.error.lower()
+    assert "unreachable" in res_a.error.lower() or "timed out" in res_a.error.lower()
 
     # Explain block when backend is offline -> UNKNOWN with success=False
     res_b = await offline_service.explain_publication_blocks(

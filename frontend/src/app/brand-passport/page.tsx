@@ -36,18 +36,12 @@ export default function BrandPassportPage() {
     loadData();
   }, []);
 
-  const handleExportPassport = () => {
+  const handleExportPassport = async () => {
     if (!selectedBrand) return;
+    const exportPolicies = await policyClient.getApprovedPoliciesForScan(selectedBrand.id);
     const passportExport = {
       brandProfile: selectedBrand,
-      governancePolicies: policies.map((p) => ({
-        id: p.id,
-        version: p.version,
-        title: p.title,
-        category: p.category,
-        rules: p.rules,
-        quote: p.metadata.quote,
-      })),
+      governancePolicies: exportPolicies,
       exportedAt: new Date().toISOString(),
       governanceCoreVersion: 'VerifiBrand Governance Blueprint v1.0',
     };

@@ -6,6 +6,7 @@ Configures the official uagents.Agent instance with:
 3. Agentverse metadata (name, handle, description, discovery tags)
 4. Configurable Mailbox / Public Endpoint networking
 """
+import asyncio
 import logging
 from typing import Optional
 from uagents import Agent, Context, Protocol
@@ -128,9 +129,20 @@ def create_verifibrand_agent(
         "handle": cfg.AGENT_HANDLE,
     }
 
+    # Ensure an active event loop exists for uagents on Python 3.10+
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+
     # Initialize official uAgents Agent
     agent = Agent(
         name=cfg.AGENT_NAME,
+        loop=loop,
         port=cfg.AGENT_PORT,
         seed=cfg.AGENT_SEED,
         endpoint=endpoint,
