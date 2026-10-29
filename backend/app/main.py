@@ -3,6 +3,7 @@
 Connects PostgreSQL database, configures CORS, and registers API routers.
 """
 from contextlib import asynccontextmanager
+from datetime import datetime
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -73,11 +74,18 @@ class ScanDraftRequest(BaseModel):
 
 class ScanDraftResponse(BaseModel):
     findings: list[Finding] = Field(default_factory=list)
+    total_findings: int = Field(default=0)
 
 
 @app.post("/scan-draft", response_model=ScanDraftResponse)
+@app.post("/api/scan", response_model=ScanDraftResponse)
 async def scan_draft_endpoint(payload: ScanDraftRequest):
     """Scan draft text against policy cards and return verified findings."""
+    try:
+        datetime.strptime(payload.scan_date, "%Y-%m-%d")
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid scan_date format. Expected YYYY-MM-DD.")
+
     try:
         raw_findings = scan_draft(
             content_text=payload.content_text,
@@ -85,7 +93,9 @@ async def scan_draft_endpoint(payload: ScanDraftRequest):
             scan_date=payload.scan_date,
         )
         validated = [Finding(**f) for f in raw_findings]
-        return ScanDraftResponse(findings=validated)
+        return ScanDraftResponse(findings=validated, total_findings=len(validated))
+    except HTTPException:
+        raise
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))
 
@@ -93,4 +103,4 @@ async def scan_draft_endpoint(payload: ScanDraftRequest):
 @app.get("/health")
 async def health_check():
     """Service health check endpoint."""
-    return {"status": "healthy", "service": "brandledger-backend"}
+    return {"status": "ok", "service": "brandledger-api"}

@@ -18,8 +18,22 @@ class DatabaseManager:
     def __init__(self) -> None:
         self.pool: Optional[asyncpg.Pool] = None
 
+    def _is_pool_valid(self) -> bool:
+        """Check if pool exists and its event loop is still running."""
+        if self.pool is None:
+            return False
+        try:
+            loop = getattr(self.pool, "_loop", None)
+            if loop is not None and loop.is_closed():
+                return False
+        except Exception:
+            return False
+        return True
+
     async def connect(self) -> None:
         """Initialize the connection pool."""
+        if not self._is_pool_valid():
+            self.pool = None
         if self.pool is not None:
             return
 
@@ -44,32 +58,41 @@ class DatabaseManager:
     async def disconnect(self) -> None:
         """Close the connection pool."""
         if self.pool is not None:
-            await self.pool.close()
-            self.pool = None
+            try:
+                loop = getattr(self.pool, "_loop", None)
+                if loop is not None and not loop.is_closed():
+                    await self.pool.close()
+            except Exception:
+                pass
+            finally:
+                self.pool = None
             logger.info("Database connection pool closed.")
 
     @property
     def is_connected(self) -> bool:
         """Return True if connection pool is active."""
-        return self.pool is not None
+        return self._is_pool_valid()
 
     async def fetch(self, query: str, *args: Any) -> List[asyncpg.Record]:
         """Execute a SELECT query and return all matching records."""
-        if not self.pool:
+        if not self._is_pool_valid():
+            self.pool = None
             await self.connect()
         async with self.pool.acquire() as conn:
             return await conn.fetch(query, *args)
 
     async def fetchrow(self, query: str, *args: Any) -> Optional[asyncpg.Record]:
         """Execute a SELECT query and return a single record or None."""
-        if not self.pool:
+        if not self._is_pool_valid():
+            self.pool = None
             await self.connect()
         async with self.pool.acquire() as conn:
             return await conn.fetchrow(query, *args)
 
     async def execute(self, query: str, *args: Any) -> str:
         """Execute an INSERT, UPDATE, or DELETE statement."""
-        if not self.pool:
+        if not self._is_pool_valid():
+            self.pool = None
             await self.connect()
         async with self.pool.acquire() as conn:
             return await conn.execute(query, *args)
