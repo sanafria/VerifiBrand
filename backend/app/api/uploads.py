@@ -27,6 +27,7 @@ from backend.app.schemas.scan import ScanResponse
 from backend.app.services.scan_service import execute_scan
 from backend.extraction_module.brandledger_extraction import config as extraction_config
 from backend.extraction_module.brandledger_extraction import extract_content
+from backend.extraction_module.brandledger_extraction.visual_checks import run_visual_checks
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +35,7 @@ router = APIRouter(prefix="/scans", tags=["Scan uploads"])
 
 # Extraction error codes that mean "server is missing a dependency", not "bad file".
 _SERVER_SIDE_CODES = {"OCR_UNAVAILABLE", "PDF_BACKEND_MISSING", "INTERNAL_ERROR"}
+_VISUAL_EXTS = {".png", ".jpg", ".jpeg", ".webp", ".bmp", ".tif", ".tiff", ".pdf"}
 
 
 class ExtractionSummary(BaseModel):
@@ -49,6 +51,7 @@ class ExtractionSummary(BaseModel):
     warnings: List[str] = []
     human_review_required: bool
     review_reasons: List[str] = []
+    visual: Optional[Dict[str, Any]] = None
 
 
 class UploadScanResponse(BaseModel):
@@ -107,9 +110,14 @@ async def upload_and_scan(
 ) -> UploadScanResponse:
     original_name = Path(file.filename or "upload").name  # basename only, never a path
     tmp_path = await _save_upload(file)
+    visual = None
     try:
         # OCR / PDF rendering is CPU-heavy and blocking: keep it off the event loop.
         result = await asyncio.to_thread(extract_content, str(tmp_path), file.content_type)
+        if Path(original_name).suffix.lower() in _VISUAL_EXTS:
+            # visual checks must run before the temp file is deleted below
+            file_bytes = await asyncio.to_thread(tmp_path.read_bytes)
+            visual = await asyncio.to_thread(run_visual_checks, file_bytes, original_name)
     finally:
         tmp_path.unlink(missing_ok=True)
     result["file_name"] = original_name
@@ -143,6 +151,7 @@ async def upload_and_scan(
                 "errors": [{"code": "NO_TEXT_EXTRACTED", "message": "Extraction produced no text."}],
                 "warnings": result.get("warnings", []),
                 "visual_warnings": result.get("visual_warnings", []),
+                "visual": visual.model_dump() if visual else None,
             },
         )
 
@@ -168,5 +177,6 @@ async def upload_and_scan(
             warnings=result.get("warnings", []),
             human_review_required=bool(result.get("human_review_required", True)),
             review_reasons=result.get("review_reasons", []),
+            visual=visual.model_dump() if visual else None,
         ),
     )
