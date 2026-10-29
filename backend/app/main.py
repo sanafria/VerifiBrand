@@ -18,6 +18,8 @@ from backend.app.api.policies import router as policies_router
 from backend.app.api.reviews import router as reviews_router
 from backend.app.api.scans import router as scans_router
 from backend.app.api.uploads import router as uploads_router
+from backend.app.api.merkle import router as merkle_router
+from backend.app.api.agent_tools import router as agent_tools_router
 from backend.app.config import settings
 from backend.app.db import db_manager
 from backend.app.schemas.finding import Finding
@@ -58,6 +60,9 @@ app.include_router(scans_router, prefix="/api")
 app.include_router(uploads_router, prefix="/api")
 app.include_router(reviews_router, prefix="/api")
 app.include_router(passports_router, prefix="/api")
+app.include_router(merkle_router, prefix="/api")
+app.include_router(agent_tools_router, prefix="/api")
+
 
 
 class ScanDraftRequest(BaseModel):

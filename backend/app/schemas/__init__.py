@@ -31,6 +31,20 @@ from backend.app.schemas.scan import (
     ScanStatus,
 )
 from backend.app.schemas.system import HealthResponse, UserRole
+from backend.app.schemas.merkle import (
+    ProofDirection,
+    MerkleProofStep,
+    MerkleProof,
+    MerkleProofVerificationResult,
+    MerkleTreeResponse,
+)
+from backend.app.schemas.agent_tools import (
+    ComplianceDecision,
+    ScanCreativeInput,
+    ScanCreativeResult,
+    EvidenceCitation,
+    GetFindingsResult,
+)
 
 __all__ = [
     # Finding & Evidence
@@ -64,4 +78,17 @@ __all__ = [
     # System
     "HealthResponse",
     "UserRole",
+    # Merkle Ledger
+    "ProofDirection",
+    "MerkleProofStep",
+    "MerkleProof",
+    "MerkleProofVerificationResult",
+    "MerkleTreeResponse",
+    # Agent Tools
+    "ComplianceDecision",
+    "ScanCreativeInput",
+    "ScanCreativeResult",
+    "EvidenceCitation",
+    "GetFindingsResult",
 ]
+
