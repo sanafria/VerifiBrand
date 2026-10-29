@@ -91,6 +91,20 @@ async def _save_upload(upload: UploadFile) -> Path:
     return tmp_path
 
 
+_CONFIDENT_LOGO_STATUSES = {"possible_match", "possible_variant_mismatch", "possible_outdated_logo"}
+
+
+def _confident_logo_box(result):
+    """Logo box from page 1 of a confident logo match, else (None, None).
+    Weak matches still carry a box, so they must never be used for clear space."""
+    for m in result.get("logo_matches") or []:
+        region, size = m.get("region_full"), m.get("image_size")
+        if (m.get("status") in _CONFIDENT_LOGO_STATUSES and m.get("page") in (None, 1)
+                and region and size and region["w"] > 0 and region["h"] > 0):
+            return [region["x"], region["y"], region["w"], region["h"]], [size["w"], size["h"]]
+    return None, None
+
+
 @router.post(
     "/upload",
     response_model=UploadScanResponse,
@@ -117,7 +131,9 @@ async def upload_and_scan(
         if Path(original_name).suffix.lower() in _VISUAL_EXTS:
             # visual checks must run before the temp file is deleted below
             file_bytes = await asyncio.to_thread(tmp_path.read_bytes)
-            visual = await asyncio.to_thread(run_visual_checks, file_bytes, original_name)
+            box, ref_size = _confident_logo_box(result)
+            visual = await asyncio.to_thread(
+                run_visual_checks, file_bytes, original_name, box, ref_size, box is not None)
     finally:
         tmp_path.unlink(missing_ok=True)
     result["file_name"] = original_name

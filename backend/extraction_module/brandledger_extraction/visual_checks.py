@@ -241,7 +241,9 @@ def check_clearspace(img: Image.Image, logo_bbox: Sequence[int], rules: Dict[str
 
 # ---------------------------------------------------------------- entry point
 def run_visual_checks(data: bytes, filename: str,
-                      logo_bbox: Optional[Sequence[int]] = None) -> VisualResult:
+                      logo_bbox: Optional[Sequence[int]] = None,
+                      logo_ref_size: Optional[Sequence[int]] = None,
+                      logo_estimated: bool = False) -> VisualResult:
     res = VisualResult(processed=False, image_hash=hashlib.sha256(data).hexdigest())
     try:
         rules = load_rules()
@@ -289,7 +291,24 @@ def run_visual_checks(data: bytes, filename: str,
         res.skipped.append("visual_layout: text sizes can only be read from PDFs")
 
     if logo_bbox is not None:
-        run("visual_clearspace", lambda: check_clearspace(img, logo_bbox, rules))
+        box = logo_bbox
+        if logo_ref_size is not None:
+            rw, rh = logo_ref_size
+            if rw <= 0 or rh <= 0 or abs(rw / rh - img.width / img.height) > 0.02 * (rw / rh):
+                res.skipped.append("visual_clearspace: logo location does not match this image's shape")
+                return res
+            sx, sy = img.width / rw, img.height / rh
+            box = [round(logo_bbox[0] * sx), round(logo_bbox[1] * sy),
+                   max(1, round(logo_bbox[2] * sx)), max(1, round(logo_bbox[3] * sy))]
+        def _cs():
+            found = check_clearspace(img, box, rules)
+            if logo_estimated:
+                for f in found:
+                    if f.status == "fail":
+                        f.status = "needs_review"
+                        f.explanation += " The logo position was found automatically, so a person should confirm."
+            return found
+        run("visual_clearspace", _cs)
     else:
         res.skipped.append("visual_clearspace: no logo location supplied")
     return res

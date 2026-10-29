@@ -66,3 +66,49 @@ def test_pdf_good_typography_and_layout():
 def test_pdf_bad_font_flagged():
     r = run_visual_checks(_pdf(("helv", "cour")), "a.pdf")
     assert any(f.category == "visual_typography" for f in r.findings)
+
+def _pdf_sizes(head_size, body_size, font="helv"):
+    pymupdf = pytest.importorskip("pymupdf")
+    doc = pymupdf.open()
+    p = doc.new_page()
+    p.insert_text((72, 100), "Big Headline", fontsize=head_size, fontname=font)
+    p.insert_text((72, 140), "Body copy goes here for the test.", fontsize=body_size, fontname=font)
+    return doc.tobytes()
+
+
+def test_pdf_weak_headline_flagged_layout():
+    r = run_visual_checks(_pdf_sizes(12, 11), "a.pdf")
+    assert any(f.category == "visual_layout" for f in r.findings)
+
+
+def test_pdf_small_text_flagged_typography():
+    r = run_visual_checks(_pdf_sizes(30, 7), "a.pdf")
+    assert any(f.category == "visual_typography" for f in r.findings)
+
+
+def test_clearspace_box_is_rescaled_from_reference_size():
+    bad, good = _logo_img(True), _logo_img(False)
+    w, h = bad.size
+    # box and size are given at 2x, as if measured on a larger render
+    for img, expect_fail in ((bad, True), (good, False)):
+        r = run_visual_checks(_png(img), "a.png", logo_bbox=(200, 200, 80, 80), logo_ref_size=(w * 2, h * 2))
+        assert "visual_clearspace" in r.checks_run
+        fails = [f for f in r.findings if f.category == "visual_clearspace"]
+        assert bool(fails) == expect_fail
+
+
+def test_clearspace_skipped_when_reference_shape_differs():
+    img = _logo_img(False)
+    w, h = img.size
+    r = run_visual_checks(_png(img), "a.png", logo_bbox=(10, 10, 20, 20), logo_ref_size=(w, h * 2))
+    assert "visual_clearspace" not in r.checks_run
+    assert any(s.startswith("visual_clearspace") for s in r.skipped)
+
+
+def test_estimated_logo_box_downgrades_clearspace_fail_to_needs_review():
+    img = _png(_logo_img(True))
+    hard = run_visual_checks(img, "a.png", logo_bbox=(100, 100, 40, 40))
+    soft = run_visual_checks(img, "a.png", logo_bbox=(100, 100, 40, 40), logo_estimated=True)
+    assert [f.status for f in hard.findings if f.category == "visual_clearspace"] == ["fail"]
+    assert [f.status for f in soft.findings if f.category == "visual_clearspace"] == ["needs_review"]
+    assert "visual_clearspace" in soft.checks_run

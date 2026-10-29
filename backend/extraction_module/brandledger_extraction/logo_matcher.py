@@ -170,7 +170,7 @@ def match_logos(bgr: np.ndarray, references: list[LogoReference], page=None, has
     if not references:
         return []
     original_h, original_w = bgr.shape[:2]
-    query, _ = _downscale(bgr)
+    query, scale = _downscale(bgr)
     q_gray = cv2.cvtColor(query, cv2.COLOR_BGR2GRAY)
     standalone = (max(original_h, original_w) <= config.LOGO_STANDALONE_MAX_SIDE) and not has_text
     results = []
@@ -204,6 +204,9 @@ def match_logos(bgr: np.ndarray, references: list[LogoReference], page=None, has
             "orb_inliers": inliers, "page": page,
             "region": {"x": max(0, x - pad), "y": max(0, y - pad), "w": w, "h": h} if w else None,
             "placeholder_reference": ref.placeholder,
+            "region_full": ({"x": int(round(max(0, x - pad) / scale)), "y": int(round(max(0, y - pad) / scale)),
+                             "w": int(round(w / scale)), "h": int(round(h / scale))} if w else None),
+            "image_size": {"w": int(original_w), "h": int(original_h)},
             "human_review_required": True,
         })
         results.append(result)
