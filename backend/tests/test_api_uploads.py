@@ -82,3 +82,47 @@ def test_blank_image_is_not_treated_as_clean(client_and_calls):
     assert r.status_code == 422
     assert "NO_TEXT_EXTRACTED" in {e["code"] for e in r.json()["detail"]["errors"]}
     assert calls == []
+
+
+VISUAL_KEYS = {"processed", "checks_run", "skipped", "findings", "errors"}
+
+
+@pytest.mark.skipif(not tesseract_available(), reason="Tesseract OCR binary not installed on host system")
+def test_image_upload_returns_visual_block(client_and_calls):
+    client, calls = client_and_calls
+    r = _post(client, "images/img_clear_offer.png", "image/png")
+    assert r.status_code == 201, r.text
+    visual = r.json()["extraction"]["visual"]
+    assert visual is not None
+    assert VISUAL_KEYS <= set(visual)
+    assert visual["processed"] is True
+
+
+def test_pdf_upload_returns_visual_block(client_and_calls):
+    client, calls = client_and_calls
+    r = _post(client, "pdfs/pdf_selectable_text.pdf", "application/pdf")
+    assert r.status_code == 201, r.text
+    visual = r.json()["extraction"]["visual"]
+    assert visual is not None and VISUAL_KEYS <= set(visual)
+
+
+def test_txt_upload_skips_visual_checks(client_and_calls):
+    client, calls = client_and_calls
+    r = client.post(
+        "/api/scans/upload",
+        files={"file": ("note.txt", b"Join our members today", "text/plain")},
+    )
+    assert r.status_code == 201, r.text
+    assert r.json()["extraction"]["visual"] is None
+
+
+@pytest.mark.skipif(not tesseract_available(), reason="Tesseract OCR binary not installed on host system")
+def test_no_text_422_still_carries_visual_results(client_and_calls):
+    client, calls = client_and_calls
+    r = _post(client, "images/img_blank.png", "image/png")
+    assert r.status_code == 422
+    detail = r.json()["detail"]
+    assert "NO_TEXT_EXTRACTED" in {e["code"] for e in detail["errors"]}
+    assert detail["visual"] is not None
+    assert VISUAL_KEYS <= set(detail["visual"])
+    assert calls == []          # still never scanned
