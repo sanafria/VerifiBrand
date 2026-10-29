@@ -1,13 +1,16 @@
-"""BrandLedger Schemas Package.
+"""Pydantic Contract Schemas for BrandLedger.
 
-Re-exports shared Pydantic models for:
-- Findings & Evidence (Zynab)
-- Policy Cards (Nimra & Zoya)
-- Content Drafts & Scans (Sana & Zoya)
-- Reviews & Passports (Reviewer, Nimra & Zoya)
-- System & Roles (Zoya)
+Shared contracts across rules engine, database, and API layers.
 """
-from backend.app.schemas.finding import Finding, FindingCategory, FindingSeverity
+from backend.app.schemas.finding import (
+    Finding,
+    FindingCategory,
+    FindingSeverity,
+)
+from backend.app.schemas.passport import (
+    PassportResponse,
+    PassportStatus,
+)
 from backend.app.schemas.policy import (
     CardType,
     PolicyCard,
@@ -20,8 +23,11 @@ from backend.app.schemas.policy import (
     SeverityLevel,
     normalize_policy_card,
 )
-from backend.app.schemas.review import ReviewCreate, ReviewDecision, ReviewResponse
-from backend.app.schemas.passport import PassportResponse, PassportStatus
+from backend.app.schemas.review import (
+    ReviewCreate,
+    ReviewDecision,
+    ReviewResponse,
+)
 from backend.app.schemas.scan import (
     DraftCreate,
     DraftResponse,
@@ -36,6 +42,20 @@ from backend.app.schemas.gate import (
     GateFindingEvidence,
     PublishGateRequest,
     PublishGateResponse,
+)
+from backend.app.schemas.merkle import (
+    ProofDirection,
+    MerkleProofStep,
+    MerkleProof,
+    MerkleProofVerificationResult,
+    MerkleTreeResponse,
+)
+from backend.app.schemas.agent_tools import (
+    ComplianceDecision,
+    ScanCreativeInput,
+    ScanCreativeResult,
+    EvidenceCitation,
+    GetFindingsResult,
 )
 
 __all__ = [
@@ -75,4 +95,16 @@ __all__ = [
     "GateFindingEvidence",
     "PublishGateRequest",
     "PublishGateResponse",
+    # Merkle Ledger
+    "ProofDirection",
+    "MerkleProofStep",
+    "MerkleProof",
+    "MerkleProofVerificationResult",
+    "MerkleTreeResponse",
+    # Agent Tools
+    "ComplianceDecision",
+    "ScanCreativeInput",
+    "ScanCreativeResult",
+    "EvidenceCitation",
+    "GetFindingsResult",
 ]
