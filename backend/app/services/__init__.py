@@ -17,6 +17,15 @@ from backend.app.services.ai_checks import (
     run_optional_ai_checks,
 )
 from backend.app.services.policy_engine import scan_draft
+from backend.app.services.gate_service import (
+    compute_payload_hash,
+    ensure_gate_schema,
+    evaluate_publication_eligibility,
+    get_duplicate_publication_event,
+    get_recorded_gate_event,
+    record_publication_event,
+    verify_hmac_signature,
+)
 
 __all__ = [
     "check_terminology",
@@ -30,4 +39,11 @@ __all__ = [
     "is_ai_enabled",
     "run_optional_ai_checks",
     "scan_draft",
+    "compute_payload_hash",
+    "ensure_gate_schema",
+    "evaluate_publication_eligibility",
+    "get_duplicate_publication_event",
+    "get_recorded_gate_event",
+    "record_publication_event",
+    "verify_hmac_signature",
 ]
