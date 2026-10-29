@@ -150,3 +150,24 @@ CREATE TABLE IF NOT EXISTS passports (
 
 CREATE INDEX IF NOT EXISTS idx_passports_draft_id ON passports(draft_id);
 CREATE INDEX IF NOT EXISTS idx_passports_hash ON passports(passport_hash);
+
+-- ==============================================================================
+-- 7. PUBLICATION GATE & CMS WEBHOOK EVENTS (Member 6)
+-- ==============================================================================
+
+CREATE TABLE IF NOT EXISTS publication_events (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    event_id VARCHAR(255) UNIQUE NOT NULL,
+    draft_id UUID REFERENCES content_drafts(id) ON DELETE SET NULL,
+    scan_id UUID REFERENCES scans(id) ON DELETE SET NULL,
+    passport_id UUID REFERENCES passports(id) ON DELETE SET NULL,
+    decision VARCHAR(50) NOT NULL CHECK (decision IN ('PASS', 'BLOCK', 'pass', 'block')),
+    status_code INT NOT NULL DEFAULT 200,
+    reason TEXT NOT NULL,
+    response_payload JSONB NOT NULL,
+    payload_hash VARCHAR(64),
+    created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_publication_events_event_id ON publication_events(event_id);
+CREATE INDEX IF NOT EXISTS idx_publication_events_draft_id ON publication_events(draft_id);

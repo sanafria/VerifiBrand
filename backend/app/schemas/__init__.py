@@ -31,6 +31,12 @@ from backend.app.schemas.scan import (
     ScanStatus,
 )
 from backend.app.schemas.system import HealthResponse, UserRole
+from backend.app.schemas.gate import (
+    GateDecision,
+    GateFindingEvidence,
+    PublishGateRequest,
+    PublishGateResponse,
+)
 
 __all__ = [
     # Finding & Evidence
@@ -64,4 +70,9 @@ __all__ = [
     # System
     "HealthResponse",
     "UserRole",
+    # Publication Gate (Member 6)
+    "GateDecision",
+    "GateFindingEvidence",
+    "PublishGateRequest",
+    "PublishGateResponse",
 ]

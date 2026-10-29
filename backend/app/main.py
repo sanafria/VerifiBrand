@@ -13,6 +13,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
+from backend.app.api.gate import router as gate_router
 from backend.app.api.passports import router as passports_router
 from backend.app.api.policies import router as policies_router
 from backend.app.api.reviews import router as reviews_router
@@ -21,6 +22,7 @@ from backend.app.api.uploads import router as uploads_router
 from backend.app.config import settings
 from backend.app.db import db_manager
 from backend.app.schemas.finding import Finding
+from backend.app.services.gate_service import ensure_gate_schema
 from backend.app.services.policy_engine import scan_draft
 
 
@@ -29,6 +31,7 @@ async def lifespan(app: FastAPI):
     """Lifecycle events: connect to database on startup, disconnect on shutdown."""
     try:
         await db_manager.connect()
+        await ensure_gate_schema()
     except Exception:
         # If DB is temporarily unavailable, allow API to start for health check
         pass
@@ -58,6 +61,7 @@ app.include_router(scans_router, prefix="/api")
 app.include_router(uploads_router, prefix="/api")
 app.include_router(reviews_router, prefix="/api")
 app.include_router(passports_router, prefix="/api")
+app.include_router(gate_router, prefix="/api")
 
 
 class ScanDraftRequest(BaseModel):
