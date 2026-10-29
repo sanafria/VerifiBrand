@@ -14,6 +14,7 @@ import json
 import logging
 from typing import Any, Dict, List, Optional
 from uuid import UUID
+import asyncpg
 from fastapi import HTTPException, status
 
 from backend.app.db import db_manager
@@ -45,158 +46,187 @@ async def submit_review_decision(
     reviewer_id: str,
     reviewer_name: str,
 ) -> ReviewResponse:
-    """Submit a human review decision and generate a Content Passport if approved."""
-    # 1. Validate that the scan exists
-    scan_row = await db_manager.fetchrow(
-        """
-        SELECT s.id, s.draft_id, s.status, d.title AS draft_title, d.content_text AS draft_content
-        FROM scans s
-        JOIN content_drafts d ON d.id = s.draft_id
-        WHERE s.id = $1;
-        """,
-        payload.scan_id,
-    )
+    """Submit a human review decision and generate a Content Passport if approved.
 
-    if not scan_row:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Scan with ID '{payload.scan_id}' not found.",
-        )
+    Executes atomically within a single database transaction:
+    1. Locks the scan row with FOR UPDATE OF s to serialize concurrent reviews.
+    2. Validates scan existence, draft relationship, and completed status.
+    3. Checks for existing reviews on the locked scan.
+    4. Persists the review decision in the reviews table.
+    5. Updates the content_drafts lifecycle status.
+    6. For approved reviews, loads findings, builds canonical metadata, and inserts passport.
+    7. All writes commit together; any failure rolls back all changes automatically.
+    """
+    try:
+        async with db_manager.transaction() as conn:
+            # 1. Validate that the scan exists and acquire an exclusive row lock on the scan
+            scan_row = await conn.fetchrow(
+                """
+                SELECT s.id, s.draft_id, s.status, d.title AS draft_title, d.content_text AS draft_content
+                FROM scans s
+                JOIN content_drafts d ON d.id = s.draft_id
+                WHERE s.id = $1
+                FOR UPDATE OF s;
+                """,
+                payload.scan_id,
+            )
 
-    # 2. Validate scan belongs to draft
-    if scan_row["draft_id"] != payload.draft_id:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Scan '{payload.scan_id}' does not belong to Draft '{payload.draft_id}'.",
-        )
+            if not scan_row:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Scan with ID '{payload.scan_id}' not found.",
+                )
 
-    # 3. Validate scan is completed
-    if scan_row["status"] != "completed":
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Scan is not completed (status: '{scan_row['status']}'). Only completed scans can be reviewed.",
-        )
+            # 2. Validate scan belongs to draft
+            if scan_row["draft_id"] != payload.draft_id:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Scan '{payload.scan_id}' does not belong to Draft '{payload.draft_id}'.",
+                )
 
-    # 4. Check for duplicate review submission on this scan
-    existing_review = await db_manager.fetchrow(
-        "SELECT id, decision FROM reviews WHERE scan_id = $1;",
-        payload.scan_id,
-    )
-    if existing_review:
+            # 3. Validate scan is completed
+            if scan_row["status"] != "completed":
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Scan is not completed (status: '{scan_row['status']}'). Only completed scans can be reviewed.",
+                )
+
+            # 4. Check for duplicate review submission on this scan (protected by FOR UPDATE lock)
+            existing_review = await conn.fetchrow(
+                "SELECT id, decision FROM reviews WHERE scan_id = $1;",
+                payload.scan_id,
+            )
+            if existing_review:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=f"Scan '{payload.scan_id}' has already been reviewed (decision: {existing_review['decision']}).",
+                )
+
+            # 5. Persist the review record
+            insert_review_query = """
+                INSERT INTO reviews (
+                    draft_id, scan_id, reviewer_id, reviewer_name, decision, comment
+                ) VALUES ($1, $2, $3, $4, $5, $6)
+                RETURNING id, created_at;
+            """
+
+            review_record = await conn.fetchrow(
+                insert_review_query,
+                payload.draft_id,
+                payload.scan_id,
+                reviewer_id,
+                reviewer_name,
+                payload.decision.value,
+                payload.comment or "",
+            )
+
+            if not review_record:
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail="Failed to persist review decision.",
+                )
+
+            review_id = review_record["id"]
+            created_at = review_record["created_at"]
+
+            # 6. Update draft lifecycle status
+            new_draft_status = "approved" if payload.decision == ReviewDecision.APPROVED else "rejected"
+            await conn.execute(
+                "UPDATE content_drafts SET status = $1, updated_at = NOW() WHERE id = $2;",
+                new_draft_status,
+                payload.draft_id,
+            )
+
+            passport_id: Optional[UUID] = None
+
+            # 7. If approved: assemble immutable snapshot, compute hash, and issue Content Passport
+            if payload.decision == ReviewDecision.APPROVED:
+                # Load all findings cited in this scan
+                findings_rows = await conn.fetch(
+                    """
+                    SELECT policy_card_id, policy_version, category, severity, matched_text, source_quote
+                    FROM findings
+                    WHERE scan_id = $1
+                    ORDER BY created_at ASC;
+                    """,
+                    payload.scan_id,
+                )
+
+                policy_versions_applied = sorted(
+                    [
+                        {
+                            "policy_card_id": str(f["policy_card_id"] or ""),
+                            "policy_version": str(f["policy_version"]),
+                        }
+                        for f in findings_rows
+                    ],
+                    key=lambda x: (x["policy_card_id"], x["policy_version"]),
+                )
+
+                findings_summary = [
+                    {
+                        "category": f["category"],
+                        "severity": f["severity"],
+                        "matched_text": f["matched_text"],
+                        "source_quote": f["source_quote"],
+                    }
+                    for f in findings_rows
+                ]
+
+                # Assemble stable snapshot
+                metadata_snapshot: Dict[str, Any] = {
+                    "draft_id": str(payload.draft_id),
+                    "draft_title": scan_row["draft_title"],
+                    "draft_content": scan_row["draft_content"],
+                    "scan_id": str(payload.scan_id),
+                    "review_id": str(review_id),
+                    "reviewer_id": reviewer_id,
+                    "reviewer_name": reviewer_name,
+                    "decision": "approved",
+                    "comment": payload.comment or "",
+                    "policy_versions_applied": policy_versions_applied,
+                    "findings_summary": findings_summary,
+                    "total_findings": len(findings_rows),
+                    "issued_at": created_at.isoformat(),
+                }
+
+                # Compute SHA-256 hash over canonical representation
+                passport_hash = compute_canonical_passport_hash(metadata_snapshot)
+
+                insert_passport_query = """
+                    INSERT INTO passports (
+                        draft_id, scan_id, review_id, passport_hash, status, metadata_snapshot
+                    ) VALUES ($1, $2, $3, $4, 'valid', $5::jsonb)
+                    RETURNING id;
+                """
+
+                passport_record = await conn.fetchrow(
+                    insert_passport_query,
+                    payload.draft_id,
+                    payload.scan_id,
+                    review_id,
+                    passport_hash,
+                    json.dumps(metadata_snapshot),
+                )
+
+                if not passport_record:
+                    raise RuntimeError("Failed to persist Content Passport record.")
+
+                passport_id = passport_record["id"]
+
+    except HTTPException:
+        raise
+    except asyncpg.UniqueViolationError:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=f"Scan '{payload.scan_id}' has already been reviewed (decision: {existing_review['decision']}).",
+            detail=f"Scan '{payload.scan_id}' has already been reviewed.",
         )
-
-    # 5. Persist the review record
-    insert_review_query = """
-        INSERT INTO reviews (
-            draft_id, scan_id, reviewer_id, reviewer_name, decision, comment
-        ) VALUES ($1, $2, $3, $4, $5, $6)
-        RETURNING id, created_at;
-    """
-
-    review_record = await db_manager.fetchrow(
-        insert_review_query,
-        payload.draft_id,
-        payload.scan_id,
-        reviewer_id,
-        reviewer_name,
-        payload.decision.value,
-        payload.comment or "",
-    )
-
-    if not review_record:
+    except Exception as exc:
+        logger.error(f"Review transaction failed: {exc}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to persist review decision.",
+            detail="Failed to record review decision due to an internal error.",
         )
-
-    review_id = review_record["id"]
-    created_at = review_record["created_at"]
-
-    # 6. Update draft lifecycle status
-    new_draft_status = "approved" if payload.decision == ReviewDecision.APPROVED else "rejected"
-    await db_manager.execute(
-        "UPDATE content_drafts SET status = $1, updated_at = NOW() WHERE id = $2;",
-        new_draft_status,
-        payload.draft_id,
-    )
-
-    passport_id: Optional[UUID] = None
-
-    # 7. If approved: assemble immutable snapshot, compute hash, and issue Content Passport
-    if payload.decision == ReviewDecision.APPROVED:
-        # Load all findings cited in this scan
-        findings_rows = await db_manager.fetch(
-            """
-            SELECT policy_card_id, policy_version, category, severity, matched_text, source_quote
-            FROM findings
-            WHERE scan_id = $1
-            ORDER BY created_at ASC;
-            """,
-            payload.scan_id,
-        )
-
-        policy_versions_applied = sorted(
-            [
-                {
-                    "policy_card_id": str(f["policy_card_id"] or ""),
-                    "policy_version": str(f["policy_version"]),
-                }
-                for f in findings_rows
-            ],
-            key=lambda x: (x["policy_card_id"], x["policy_version"]),
-        )
-
-        findings_summary = [
-            {
-                "category": f["category"],
-                "severity": f["severity"],
-                "matched_text": f["matched_text"],
-                "source_quote": f["source_quote"],
-            }
-            for f in findings_rows
-        ]
-
-        # Assemble stable snapshot
-        metadata_snapshot: Dict[str, Any] = {
-            "draft_id": str(payload.draft_id),
-            "draft_title": scan_row["draft_title"],
-            "draft_content": scan_row["draft_content"],
-            "scan_id": str(payload.scan_id),
-            "review_id": str(review_id),
-            "reviewer_id": reviewer_id,
-            "reviewer_name": reviewer_name,
-            "decision": "approved",
-            "comment": payload.comment or "",
-            "policy_versions_applied": policy_versions_applied,
-            "findings_summary": findings_summary,
-            "total_findings": len(findings_rows),
-            "issued_at": created_at.isoformat(),
-        }
-
-        # Compute SHA-256 hash over canonical representation
-        passport_hash = compute_canonical_passport_hash(metadata_snapshot)
-
-        insert_passport_query = """
-            INSERT INTO passports (
-                draft_id, scan_id, review_id, passport_hash, status, metadata_snapshot
-            ) VALUES ($1, $2, $3, $4, 'valid', $5::jsonb)
-            RETURNING id;
-        """
-
-        passport_record = await db_manager.fetchrow(
-            insert_passport_query,
-            payload.draft_id,
-            payload.scan_id,
-            review_id,
-            passport_hash,
-            json.dumps(metadata_snapshot),
-        )
-
-        if passport_record:
-            passport_id = passport_record["id"]
 
     return ReviewResponse(
         id=review_id,

@@ -8,6 +8,9 @@ SEED_PATH = Path(__file__).resolve().parent.parent.parent / "database" / "seed.s
 DOCKER_COMPOSE_PATH = Path(__file__).resolve().parent.parent.parent / "docker-compose.yml"
 
 
+MIGRATION_PATH = Path(__file__).resolve().parent.parent.parent / "database" / "migrations" / "001_unique_scan_constraints.sql"
+
+
 def test_schema_file_exists() -> None:
     """Verify database/schema.sql exists and is non-empty."""
     assert SCHEMA_PATH.exists(), f"Schema file not found at {SCHEMA_PATH}"
@@ -90,3 +93,49 @@ def test_docker_compose_configuration() -> None:
     assert "5433:5432" in content
     assert "01_schema.sql" in content
     assert "02_seed.sql" in content
+
+
+def test_schema_defines_scan_id_uniqueness_constraints() -> None:
+    """Verify schema.sql defines named UNIQUE constraints for reviews.scan_id and passports.scan_id."""
+    content = SCHEMA_PATH.read_text(encoding="utf-8")
+
+    # reviews table scan_id uniqueness
+    assert "CONSTRAINT uq_reviews_scan_id UNIQUE (scan_id)" in content, (
+        "Expected named constraint 'uq_reviews_scan_id' in reviews table definition"
+    )
+
+    # passports table scan_id uniqueness
+    assert "CONSTRAINT uq_passports_scan_id UNIQUE (scan_id)" in content, (
+        "Expected named constraint 'uq_passports_scan_id' in passports table definition"
+    )
+
+    # passports table review_id uniqueness preserved
+    assert "review_id UUID NOT NULL UNIQUE REFERENCES reviews(id)" in content, (
+        "Expected passports.review_id to retain its UNIQUE constraint"
+    )
+
+    # No redundant index on reviews(scan_id)
+    assert "idx_reviews_scan_id" not in content, (
+        "Redundant index idx_reviews_scan_id should be omitted when uq_reviews_scan_id is defined"
+    )
+
+
+def test_migration_001_file_exists_and_enforces_rules() -> None:
+    """Verify migration 001 exists, is repeatable, and uses safe non-destructive checks."""
+    assert MIGRATION_PATH.exists(), f"Migration file not found at {MIGRATION_PATH}"
+    content = MIGRATION_PATH.read_text(encoding="utf-8")
+
+    # Constraint names match schema.sql
+    assert "uq_reviews_scan_id" in content
+    assert "uq_passports_scan_id" in content
+
+    # Precondition duplicate detection
+    assert "HAVING COUNT(*) > 1" in content
+    assert "RAISE EXCEPTION" in content
+
+    # Catalog check idempotency
+    assert "pg_constraint" in content
+    assert "DO $$" in content
+
+    # Drops redundant non-unique index if present
+    assert "idx_reviews_scan_id" in content

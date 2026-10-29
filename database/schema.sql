@@ -127,11 +127,11 @@ CREATE TABLE IF NOT EXISTS reviews (
     reviewer_name VARCHAR(255) NOT NULL,
     decision VARCHAR(50) NOT NULL CHECK (decision IN ('approved', 'rejected')),
     comment TEXT NOT NULL,
-    created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
+    created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+    CONSTRAINT uq_reviews_scan_id UNIQUE (scan_id)
 );
 
 CREATE INDEX IF NOT EXISTS idx_reviews_draft_id ON reviews(draft_id);
-CREATE INDEX IF NOT EXISTS idx_reviews_scan_id ON reviews(scan_id);
 
 -- ==============================================================================
 -- 6. CONTENT PASSPORTS (Immutable Audit Certificate)
@@ -145,7 +145,8 @@ CREATE TABLE IF NOT EXISTS passports (
     passport_hash VARCHAR(64) NOT NULL,
     status VARCHAR(50) DEFAULT 'valid' NOT NULL CHECK (status IN ('valid', 'revoked')),
     metadata_snapshot JSONB NOT NULL,
-    created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
+    created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+    CONSTRAINT uq_passports_scan_id UNIQUE (scan_id)
 );
 
 CREATE INDEX IF NOT EXISTS idx_passports_draft_id ON passports(draft_id);
