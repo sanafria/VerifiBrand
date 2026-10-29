@@ -1,13 +1,16 @@
-"""BrandLedger Schemas Package.
+"""Pydantic Contract Schemas for BrandLedger.
 
-Re-exports shared Pydantic models for:
-- Findings & Evidence (Zynab)
-- Policy Cards (Nimra & Zoya)
-- Content Drafts & Scans (Sana & Zoya)
-- Reviews & Passports (Reviewer, Nimra & Zoya)
-- System & Roles (Zoya)
+Shared contracts across rules engine, database, and API layers.
 """
-from backend.app.schemas.finding import Finding, FindingCategory, FindingSeverity
+from backend.app.schemas.finding import (
+    Finding,
+    FindingCategory,
+    FindingSeverity,
+)
+from backend.app.schemas.passport import (
+    PassportResponse,
+    PassportStatus,
+)
 from backend.app.schemas.policy import (
     CardType,
     PolicyCard,
@@ -20,8 +23,11 @@ from backend.app.schemas.policy import (
     SeverityLevel,
     normalize_policy_card,
 )
-from backend.app.schemas.review import ReviewCreate, ReviewDecision, ReviewResponse
-from backend.app.schemas.passport import PassportResponse, PassportStatus
+from backend.app.schemas.review import (
+    ReviewCreate,
+    ReviewDecision,
+    ReviewResponse,
+)
 from backend.app.schemas.scan import (
     DraftCreate,
     DraftResponse,
@@ -31,6 +37,12 @@ from backend.app.schemas.scan import (
     ScanStatus,
 )
 from backend.app.schemas.system import HealthResponse, UserRole
+from backend.app.schemas.gate import (
+    GateDecision,
+    GateFindingEvidence,
+    PublishGateRequest,
+    PublishGateResponse,
+)
 from backend.app.schemas.merkle import (
     ProofDirection,
     MerkleProofStep,
@@ -78,6 +90,11 @@ __all__ = [
     # System
     "HealthResponse",
     "UserRole",
+    # Publication Gate (Member 6)
+    "GateDecision",
+    "GateFindingEvidence",
+    "PublishGateRequest",
+    "PublishGateResponse",
     # Merkle Ledger
     "ProofDirection",
     "MerkleProofStep",
@@ -91,4 +108,3 @@ __all__ = [
     "EvidenceCitation",
     "GetFindingsResult",
 ]
-

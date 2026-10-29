@@ -1,18 +1,17 @@
-"""BrandLedger FastAPI Application Entry Point.
+"""FastAPI Main Entrypoint for BrandLedger.
 
-Maintained as part of the shared API layer owned by Zoya, integrating
-CORS, configuration, shared schemas, database pooling, Policy Card APIs,
-and Zynab's scan_draft service.
+Connects PostgreSQL database, configures CORS, and registers API routers.
 """
-
 from contextlib import asynccontextmanager
-from typing import Any
+from datetime import datetime
+
 from dotenv import load_dotenv
 load_dotenv()
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
+from backend.app.api.gate import router as gate_router
 from backend.app.api.passports import router as passports_router
 from backend.app.api.policies import router as policies_router
 from backend.app.api.reviews import router as reviews_router
@@ -23,6 +22,7 @@ from backend.app.api.agent_tools import router as agent_tools_router
 from backend.app.config import settings
 from backend.app.db import db_manager
 from backend.app.schemas.finding import Finding
+from backend.app.services.gate_service import ensure_gate_schema
 from backend.app.services.policy_engine import scan_draft
 
 
@@ -31,6 +31,7 @@ async def lifespan(app: FastAPI):
     """Lifecycle events: connect to database on startup, disconnect on shutdown."""
     try:
         await db_manager.connect()
+        await ensure_gate_schema()
     except Exception:
         # If DB is temporarily unavailable, allow API to start for health check
         pass
@@ -60,44 +61,46 @@ app.include_router(scans_router, prefix="/api")
 app.include_router(uploads_router, prefix="/api")
 app.include_router(reviews_router, prefix="/api")
 app.include_router(passports_router, prefix="/api")
+app.include_router(gate_router, prefix="/api")
 app.include_router(merkle_router, prefix="/api")
 app.include_router(agent_tools_router, prefix="/api")
 
 
-
 class ScanDraftRequest(BaseModel):
-    """Scan request model matching the scan workflow contract."""
-    content_text: str = Field(..., description="Draft marketing content to be scanned")
-    policy_cards: list[dict[str, Any]] = Field(..., description="Approved policy cards")
-    scan_date: str = Field(..., description="Reference scan date string (YYYY-MM-DD)")
+    content_text: str = Field(..., description="Draft text to scan")
+    policy_cards: list[dict] = Field(..., description="Policy cards to validate against")
+    scan_date: str = Field(..., description="Reference date YYYY-MM-DD")
 
 
 class ScanDraftResponse(BaseModel):
-    """Scan response model returning structured, validated findings."""
-    total_findings: int
-    findings: list[Finding]
+    findings: list[Finding] = Field(default_factory=list)
+    total_findings: int = Field(default=0)
+
+
+@app.post("/scan-draft", response_model=ScanDraftResponse)
+@app.post("/api/scan", response_model=ScanDraftResponse)
+async def scan_draft_endpoint(payload: ScanDraftRequest):
+    """Scan draft text against policy cards and return verified findings."""
+    try:
+        datetime.strptime(payload.scan_date, "%Y-%m-%d")
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid scan_date format. Expected YYYY-MM-DD.")
+
+    try:
+        raw_findings = scan_draft(
+            content_text=payload.content_text,
+            policy_cards=payload.policy_cards,
+            scan_date=payload.scan_date,
+        )
+        validated = [Finding(**f) for f in raw_findings]
+        return ScanDraftResponse(findings=validated, total_findings=len(validated))
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
 
 
 @app.get("/health")
-def health_check() -> dict[str, str]:
-    """Health check endpoint."""
+async def health_check():
+    """Service health check endpoint."""
     return {"status": "ok", "service": "brandledger-api"}
-
-
-@app.post("/api/scan", response_model=ScanDraftResponse)
-def api_scan_draft(request: ScanDraftRequest) -> ScanDraftResponse:
-    """Scan draft endpoint integrating the deterministic policy engine service."""
-    try:
-        findings = scan_draft(
-            content_text=request.content_text,
-            policy_cards=request.policy_cards,
-            scan_date=request.scan_date,
-        )
-        return ScanDraftResponse(
-            total_findings=len(findings),
-            findings=[Finding(**f) for f in findings],
-        )
-    except ValueError as val_err:
-        raise HTTPException(status_code=400, detail=str(val_err))
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Scan error: {str(exc)}")

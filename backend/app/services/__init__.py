@@ -21,6 +21,15 @@ from backend.app.services.ai_checks import (
     run_optional_ai_checks,
 )
 from backend.app.services.policy_engine import scan_draft
+from backend.app.services.gate_service import (
+    compute_payload_hash,
+    ensure_gate_schema,
+    evaluate_publication_eligibility,
+    get_duplicate_publication_event,
+    get_recorded_gate_event,
+    record_publication_event,
+    verify_hmac_signature,
+)
 from backend.app.services.merkle_ledger import (
     MerkleTree,
     hash_leaf,
@@ -50,16 +59,23 @@ __all__ = [
     "is_ai_enabled",
     "run_optional_ai_checks",
     "scan_draft",
-    # Merkle Ledger
+    # Gate Service (Member 6)
+    "compute_payload_hash",
+    "ensure_gate_schema",
+    "evaluate_publication_eligibility",
+    "get_duplicate_publication_event",
+    "get_recorded_gate_event",
+    "record_publication_event",
+    "verify_hmac_signature",
+    # Merkle Ledger (Member 4)
     "MerkleTree",
     "hash_leaf",
     "hash_internal_nodes",
     "verify_merkle_proof",
     "build_merkle_tree_from_passports",
     "get_database_passport_ledger",
-    # Agent Tools
+    # Agent Tools (Member 4)
     "scan_creative",
     "get_findings",
     "evaluate_compliance_decision",
 ]
-

@@ -53,3 +53,5 @@ frontend/node_modules/
 .next/
 frontend/.next/
 frontend/out/
+
+agent_local_backup/

@@ -9,7 +9,8 @@
  * Architecture:
  * - Authoritative REST integration with FastAPI backend (/api/policies)
  * - Transparent status & field mapping between frontend and backend schemas
- * - Development fallback when backend is offline in local unit tests
+ * - Compatible with NEXT_PUBLIC_USE_BACKEND_CRUD environment settings
+ * - Development persistence adapter (localStorage + in-memory fallback) for offline & testing
  */
 
 import type { PolicyCard, PolicyFilterState, BrandProfile, PolicyCategory, PolicyStatus } from '../../types/policy.ts';
@@ -25,7 +26,12 @@ const API_BASE_URL =
     ? ''
     : 'http://127.0.0.1:8000';
 
-interface BackendPolicyResponse {
+function isBackendEnabled(): boolean {
+  // Backend is authoritative unless explicitly disabled via NEXT_PUBLIC_USE_BACKEND_CRUD='false'
+  return process.env.NEXT_PUBLIC_USE_BACKEND_CRUD !== 'false';
+}
+
+export interface BackendPolicyResponse {
   id: string;
   policy_key?: string;
   title: string;
@@ -44,16 +50,27 @@ interface BackendPolicyResponse {
   updated_at: string;
 }
 
+export function mapCategoryToCardType(category?: string): 'terminology' | 'offer' | 'fact' | 'claim' | 'tone' {
+  const norm = (category || '').toLowerCase().trim();
+  if (norm === 'offer_validity' || norm === 'offer') return 'offer';
+  if (norm === 'numerical' || norm === 'fact') return 'fact';
+  if (norm === 'claims' || norm === 'claim') return 'claim';
+  if (norm === 'tone' || norm === 'voice_tone') return 'tone';
+  return 'terminology';
+}
+
+export function mapCardTypeToCategory(cardType?: string): PolicyCategory {
+  const norm = (cardType || '').toLowerCase().trim();
+  if (norm === 'offer') return 'offer_validity';
+  if (norm === 'fact') return 'numerical';
+  if (norm === 'claim') return 'claims';
+  if (norm === 'tone') return 'tone';
+  if (norm === 'visual') return 'visual';
+  return (norm as PolicyCategory) || 'terminology';
+}
+
 export function mapBackendToFrontendPolicy(b: BackendPolicyResponse): PolicyCard {
-  const categoryMap: Record<string, PolicyCategory> = {
-    terminology: 'terminology',
-    offer: 'offer_validity',
-    claim: 'claims',
-    fact: 'numerical',
-    tone: 'tone',
-    visual: 'visual',
-  };
-  const category: PolicyCategory = categoryMap[b.card_type?.toLowerCase()] || 'terminology';
+  const category: PolicyCategory = mapCardTypeToCategory(b.card_type);
 
   const statusMap: Record<string, PolicyStatus> = {
     active: 'approved',
@@ -100,16 +117,7 @@ export function mapBackendToFrontendPolicy(b: BackendPolicyResponse): PolicyCard
 }
 
 export function mapFrontendToBackendPayload(f: Partial<PolicyCard>): Record<string, any> {
-  const reverseCatMap: Record<string, string> = {
-    terminology: 'terminology',
-    offer_validity: 'offer',
-    claims: 'claim',
-    numerical: 'fact',
-    tone: 'tone',
-    visual: 'terminology',
-  };
-
-  const card_type = f.category ? reverseCatMap[f.category] || 'terminology' : undefined;
+  const card_type = f.category ? mapCategoryToCardType(f.category) : undefined;
   const status = f.status === 'archived' || f.status === 'draft' ? 'inactive' : 'active';
   const source_quote =
     (f.metadata?.quote as string) ||
@@ -159,7 +167,7 @@ class PolicyClient {
           localStorage.setItem(STORAGE_KEY_BRANDS, JSON.stringify(this.inMemoryBrands));
         }
       } catch (e) {
-        console.warn('LocalStorage unavailable, defaulting to in-memory store:', e);
+        console.warn('LocalStorage unavailable, defaulting to memory-only storage:', e);
       }
     }
   }
@@ -202,20 +210,11 @@ class PolicyClient {
     total: number;
     dataSource: 'backend_api' | 'dev_adapter';
   }> {
-    const useBackend = process.env.NEXT_PUBLIC_USE_BACKEND_CRUD !== 'false';
-
-    if (useBackend) {
+    if (isBackendEnabled()) {
       try {
         const params = new URLSearchParams();
         if (filters?.category && filters.category !== 'all') {
-          const catMap: Record<string, string> = {
-            terminology: 'terminology',
-            offer_validity: 'offer',
-            claims: 'claim',
-            numerical: 'fact',
-            tone: 'tone',
-          };
-          params.set('card_type', catMap[filters.category] || filters.category);
+          params.set('card_type', mapCategoryToCardType(filters.category));
         }
 
         if (filters?.status && filters.status !== 'all') {
@@ -237,7 +236,7 @@ class PolicyClient {
         if (res.ok) {
           const envelope = await res.json();
           const items: BackendPolicyResponse[] = Array.isArray(envelope) ? envelope : envelope.items || [];
-          const mapped = items.map(mapBackendToFrontendPolicy);
+          let mapped = items.map(mapBackendToFrontendPolicy);
 
           // Update local memory cache with latest authoritative data
           if (mapped.length > 0) {
@@ -245,26 +244,36 @@ class PolicyClient {
             this.persistPolicies();
           }
 
-          let finalResults = mapped;
+          if (filters?.searchQuery && filters.searchQuery.trim()) {
+            const query = filters.searchQuery.toLowerCase().trim();
+            mapped = mapped.filter(
+              (p) =>
+                p.title.toLowerCase().includes(query) ||
+                p.id.toLowerCase().includes(query) ||
+                p.content.toLowerCase().includes(query) ||
+                (p.metadata.author && String(p.metadata.author).toLowerCase().includes(query)) ||
+                (p.metadata.prohibited_terms && JSON.stringify(p.metadata.prohibited_terms).toLowerCase().includes(query))
+            );
+          }
+
           if (filters?.sortBy) {
-            finalResults = [...finalResults];
             if (filters.sortBy === 'title_asc') {
-              finalResults.sort((a, b) => a.title.localeCompare(b.title));
+              mapped.sort((a, b) => a.title.localeCompare(b.title));
             } else if (filters.sortBy === 'version_desc') {
-              finalResults.sort((a, b) => b.version.localeCompare(a.version));
+              mapped.sort((a, b) => b.version.localeCompare(a.version));
             } else if (filters.sortBy === 'updated_desc') {
-              finalResults.sort((a, b) => (b.updated_at || '').localeCompare(a.updated_at || ''));
+              mapped.sort((a, b) => (b.updated_at || '').localeCompare(a.updated_at || ''));
             }
           }
 
           return {
-            policies: finalResults,
-            total: envelope.total !== undefined ? envelope.total : finalResults.length,
+            policies: mapped,
+            total: envelope.total !== undefined ? envelope.total : mapped.length,
             dataSource: 'backend_api',
           };
         }
       } catch (err) {
-        // In local node:test or offline environments, gracefully fall back to dev adapter
+        console.warn('Backend policy request failed, falling back to local adapter:', err);
       }
     }
 
@@ -318,8 +327,7 @@ class PolicyClient {
    * Get single policy by ID.
    */
   public async getPolicyById(id: string): Promise<PolicyCard | null> {
-    const useBackend = process.env.NEXT_PUBLIC_USE_BACKEND_CRUD !== 'false';
-    if (useBackend) {
+    if (isBackendEnabled()) {
       try {
         const res = await fetch(`${API_BASE_URL}/api/policies/${encodeURIComponent(id)}`, {
           headers: { 'Content-Type': 'application/json' },
@@ -339,6 +347,7 @@ class PolicyClient {
 
   /**
    * Create a new approved or draft policy.
+   * Backend is authoritative: server rejections are immediately thrown.
    */
   public async createPolicy(newPolicy: Omit<PolicyCard, 'created_at' | 'updated_at'>): Promise<PolicyCard> {
     // 1. Check ID uniqueness in local memory
@@ -358,8 +367,7 @@ class PolicyClient {
       }
     }
 
-    const useBackend = process.env.NEXT_PUBLIC_USE_BACKEND_CRUD !== 'false';
-    if (useBackend) {
+    if (isBackendEnabled()) {
       try {
         const backendPayload = mapFrontendToBackendPayload(newPolicy);
         const res = await fetch(`${API_BASE_URL}/api/policies`, {
@@ -376,11 +384,14 @@ class PolicyClient {
           return mapped;
         } else {
           const errData = await res.json().catch(() => ({}));
-          throw new Error(errData.detail || `Backend failed to create policy (HTTP ${res.status})`);
+          throw new Error(errData.detail || `Backend error: status ${res.status}`);
         }
       } catch (err: any) {
-        // If server actively failed with error response, propagate failure without silent false success
+        // If server actively rejected or failed, throw without silent false success
         if (err.message && !err.message.includes('fetch failed') && !err.message.includes('ECONNREFUSED')) {
+          throw err;
+        }
+        if (process.env.NEXT_PUBLIC_USE_BACKEND_CRUD === 'true') {
           throw err;
         }
       }
@@ -423,8 +434,7 @@ class PolicyClient {
       }
     }
 
-    const useBackend = process.env.NEXT_PUBLIC_USE_BACKEND_CRUD !== 'false';
-    if (useBackend) {
+    if (isBackendEnabled()) {
       try {
         const targetId = (current.metadata?.backend_id as string) || id;
         const backendPayload = mapFrontendToBackendPayload({ ...current, ...updates });
@@ -448,6 +458,9 @@ class PolicyClient {
         if (err.message && !err.message.includes('fetch failed') && !err.message.includes('ECONNREFUSED')) {
           throw err;
         }
+        if (process.env.NEXT_PUBLIC_USE_BACKEND_CRUD === 'true') {
+          throw err;
+        }
       }
     }
 
@@ -468,15 +481,22 @@ class PolicyClient {
    * Archive a policy.
    */
   public async archivePolicy(id: string): Promise<PolicyCard> {
-    const useBackend = process.env.NEXT_PUBLIC_USE_BACKEND_CRUD !== 'false';
-    if (useBackend) {
+    if (isBackendEnabled()) {
       try {
         const current = this.inMemoryPolicies.find((p) => p.id === id);
         const targetId = (current?.metadata?.backend_id as string) || id;
-        const res = await fetch(`${API_BASE_URL}/api/policies/${encodeURIComponent(targetId)}/archive`, {
+        let res = await fetch(`${API_BASE_URL}/api/policies/${encodeURIComponent(targetId)}/archive`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
         });
+
+        if (!res.ok && res.status === 404) {
+          res = await fetch(`${API_BASE_URL}/api/policies/${encodeURIComponent(targetId)}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: 'inactive' }),
+          });
+        }
 
         if (res.ok) {
           const updatedBackend: BackendPolicyResponse = await res.json();
@@ -487,9 +507,17 @@ class PolicyClient {
             this.persistPolicies();
           }
           return mapped;
+        } else {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.detail || `Backend archive failed (HTTP ${res.status})`);
         }
-      } catch {
-        // Fall back
+      } catch (err: any) {
+        if (err.message && !err.message.includes('fetch failed') && !err.message.includes('ECONNREFUSED')) {
+          throw err;
+        }
+        if (process.env.NEXT_PUBLIC_USE_BACKEND_CRUD === 'true') {
+          throw err;
+        }
       }
     }
     return this.updatePolicy(id, { status: 'archived' });
