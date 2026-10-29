@@ -1,0 +1,23 @@
+{
+  "_note": "PLACEHOLDER policy ids until Nimra's policy library has the real ones",
+  "palette": {
+    "Brand Blue": "#1E3A8A",
+    "Brand Amber": "#F59E0B",
+    "White": "#FFFFFF",
+    "Near Black": "#111827"
+  },
+  "colour": { "delta_e_pass": 10.0, "delta_e_review": 15.0, "min_area_share": 0.05 },
+  "typography": { "allowed_fonts": ["Inter", "Helvetica", "Arial"], "min_size_pt": 9 },
+  "layout": { "headline_to_body_ratio": 1.5 },
+  "clearspace": { "multiple_of_logo_height": 0.5 },
+  "rules": {
+    "visual_colour":     { "policy_card_id": "VIS-COLOUR-001", "policy_version": "1.0",
+      "quote": "All creative must use only approved brand palette colours." },
+    "visual_typography": { "policy_card_id": "VIS-TYPO-001", "policy_version": "1.0",
+      "quote": "Only approved brand typefaces may be used, at no less than 9pt." },
+    "visual_layout":     { "policy_card_id": "VIS-LAYOUT-001", "policy_version": "1.0",
+      "quote": "The headline must be clearly larger than body text and placed above it." },
+    "visual_clearspace": { "policy_card_id": "VIS-CLEAR-001", "policy_version": "1.0",
+      "quote": "Keep clear space around the logo of at least half the logo height." }
+  }
+}
