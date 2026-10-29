@@ -92,8 +92,8 @@ class PolicyClient {
     total: number;
     dataSource: 'backend_api' | 'dev_adapter';
   }> {
-    // Attempt real backend call if configured
-    if (process.env.NEXT_PUBLIC_USE_BACKEND_CRUD === 'true') {
+    // Attempt real backend call if configured or available
+    if (process.env.NEXT_PUBLIC_USE_BACKEND_CRUD === 'true' || API_BASE_URL) {
       try {
         const res = await fetch(`${API_BASE_URL}/api/policies`, {
           headers: { 'Content-Type': 'application/json' },
@@ -101,7 +101,24 @@ class PolicyClient {
         });
         if (res.ok) {
           const data = await res.json();
-          return { policies: data, total: data.length, dataSource: 'backend_api' };
+          const rawItems = Array.isArray(data) ? data : (data.items || []);
+          const normalized: PolicyCard[] = rawItems.map((item: any) => ({
+            id: String(item.id || ''),
+            version: String(item.version || '1'),
+            title: item.title || '',
+            category: item.card_type || item.category || 'terminology',
+            content: item.rule_text || item.content || '',
+            rules: Array.isArray(item.rules) ? item.rules : [],
+            metadata: {
+              ...(typeof item.metadata === 'object' ? item.metadata : {}),
+              source_quote: item.source_quote || '',
+              approved_value: item.approved_value || '',
+            },
+            status: item.status === 'active' ? 'approved' : (item.status || 'approved'),
+            created_at: item.created_at,
+            updated_at: item.updated_at,
+          }));
+          return { policies: normalized, total: normalized.length, dataSource: 'backend_api' };
         }
       } catch {
         // Fall back gracefully to development store
