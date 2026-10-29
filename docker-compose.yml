@@ -7,9 +7,9 @@ services:
     container_name: brandledger_postgres
     restart: unless-stopped
     environment:
-      POSTGRES_DB: brandledger
-      POSTGRES_USER: brandledger_user
-      POSTGRES_PASSWORD: brandledger_secret
+      POSTGRES_DB: ${POSTGRES_DB:-brandledger}
+      POSTGRES_USER: ${POSTGRES_USER:-brandledger_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-brandledger_secret}
     ports:
       # Port 5433 mapped to container 5432 to avoid collision with other local databases
       - "5433:5432"
@@ -18,7 +18,7 @@ services:
       - ./database/schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
       - ./database/seed.sql:/docker-entrypoint-initdb.d/02_seed.sql:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U brandledger_user -d brandledger"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-brandledger_user} -d ${POSTGRES_DB:-brandledger}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -40,12 +40,12 @@ services:
       - HOST=0.0.0.0
       - ALLOWED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
       # Uses Docker internal bridge DNS (brandledger_db:5432)
-      - DATABASE_URL=postgresql://brandledger_user:brandledger_secret@brandledger_db:5432/brandledger
-      - BRANDLEDGER_DISABLE_AI=false
-      - BRANDLEDGER_LLM_API_KEY=pt_live_95e90d1c51b2a2ad937e4be7c6cd227c33c8a4ff
-      - OPENAI_API_KEY=pt_live_95e90d1c51b2a2ad937e4be7c6cd227c33c8a4ff
-      - BRANDLEDGER_LLM_BASE_URL=https://api.openai.com/v1
-      - BRANDLEDGER_LLM_MODEL=gpt-4o-mini
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-brandledger_user}:${POSTGRES_PASSWORD:-brandledger_secret}@brandledger_db:5432/${POSTGRES_DB:-brandledger}
+      - BRANDLEDGER_DISABLE_AI=${BRANDLEDGER_DISABLE_AI:-false}
+      - BRANDLEDGER_LLM_API_KEY=${BRANDLEDGER_LLM_API_KEY:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - BRANDLEDGER_LLM_BASE_URL=${BRANDLEDGER_LLM_BASE_URL:-https://api.openai.com/v1}
+      - BRANDLEDGER_LLM_MODEL=${BRANDLEDGER_LLM_MODEL:-gpt-4o-mini}
       - BL_OCR_LANG=eng
       - BL_MAX_FILE_MB=20
       - BL_MAX_PDF_PAGES=15
@@ -68,7 +68,6 @@ services:
       args:
         - NEXT_PUBLIC_API_URL=http://localhost:8000
         - NEXT_PUBLIC_USE_BACKEND_CRUD=false
-        - NEXT_PUBLIC_ADAPTIONLABS_API_KEY=pt_live_95e90d1c51b2a2ad937e4be7c6cd227c33c8a4ff
     container_name: brandledger_frontend
     restart: unless-stopped
     ports:
@@ -77,7 +76,6 @@ services:
       - NODE_ENV=production
       - NEXT_PUBLIC_API_URL=http://localhost:8000
       - NEXT_PUBLIC_USE_BACKEND_CRUD=false
-      - NEXT_PUBLIC_ADAPTIONLABS_API_KEY=pt_live_95e90d1c51b2a2ad937e4be7c6cd227c33c8a4ff
     depends_on:
       backend:
         condition: service_healthy
