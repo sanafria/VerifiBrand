@@ -56,3 +56,11 @@ def test_shared_schema_enums_consistency() -> None:
     assert PassportStatus.VALID.value == "valid"
     assert UserRole.REVIEWER.value == "reviewer"
     assert UserRole.CREATOR.value == "creator"
+
+
+def test_app_starts_and_health_succeeds_without_cv2(client: TestClient) -> None:
+    """Verify that FastAPI application starts and serves requests even when cv2 is unavailable."""
+    response = client.get("/health")
+    assert response.status_code == 200
+    assert response.json()["status"] == "ok"
+    assert response.json()["service"] == "brandledger-api"

@@ -7,7 +7,11 @@ Both expose the same tiny interface: ``page_count``, ``page_text(i)``,
 ``render_page(i, dpi)`` (returns a BGR numpy array) and ``close()``.
 """
 from __future__ import annotations
-import numpy as np
+
+try:
+    import numpy as np
+except ImportError:
+    np = None
 
 
 class PdfEncryptedError(Exception):
@@ -55,8 +59,13 @@ class _FitzDoc:
 
 
 def cv2_gray_to_bgr(arr: np.ndarray) -> np.ndarray:
-    import cv2
-    return cv2.cvtColor(arr, cv2.COLOR_GRAY2BGR)
+    try:
+        import cv2
+        return cv2.cvtColor(arr, cv2.COLOR_GRAY2BGR)
+    except ImportError:
+        if np is not None:
+            return np.repeat(arr[:, :, :1], 3, axis=2)
+        return arr
 
 
 class _PdfiumDoc:

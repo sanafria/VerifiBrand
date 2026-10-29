@@ -16,8 +16,15 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
-import cv2
-import numpy as np
+try:
+    import cv2
+except ImportError:
+    cv2 = None
+
+try:
+    import numpy as np
+except ImportError:
+    np = None
 
 from . import config
 
@@ -32,6 +39,8 @@ class LogoReference:
 
 
 def _load_image_with_alpha(path: Path) -> np.ndarray | None:
+    if cv2 is None or np is None:
+        return None
     data = cv2.imdecode(np.fromfile(str(path), dtype=np.uint8), cv2.IMREAD_UNCHANGED)
     if data is None:
         return None
@@ -45,6 +54,8 @@ def _load_image_with_alpha(path: Path) -> np.ndarray | None:
 
 def load_library(library_dir: str | Path | None = None) -> tuple[list[LogoReference], list[str]]:
     """Load references. Returns (references, problems)."""
+    if cv2 is None:
+        return [], ["OpenCV (cv2) is not installed; logo matching disabled."]
     lib = Path(library_dir or config.LOGO_LIBRARY_DIR)
     manifest = lib / "manifest.json"
     problems: list[str] = []
@@ -167,7 +178,7 @@ def _mask_similarity(query_bgr: np.ndarray, ref_bgr: np.ndarray, size: int = 128
 def match_logos(bgr: np.ndarray, references: list[LogoReference], page=None, has_text: bool = False) -> list[dict]:
     """Compare ``bgr`` with each reference. Returns one result per reference,
     best first.  Never raises for ordinary images."""
-    if not references:
+    if cv2 is None or not references:
         return []
     original_h, original_w = bgr.shape[:2]
     query, scale = _downscale(bgr)

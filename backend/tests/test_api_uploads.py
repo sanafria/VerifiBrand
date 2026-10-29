@@ -14,9 +14,11 @@ from fastapi.testclient import TestClient
 
 from backend.app.api import uploads
 from backend.app.schemas.scan import ScanResponse, ScanStatus
-from backend.extraction_module.brandledger_extraction.ocr_service import tesseract_available
+from backend.extraction_module.brandledger_extraction.file_processing import extract_content
+from backend.extraction_module.brandledger_extraction.ocr_service import opencv_available, tesseract_available
 
 DATA = Path(__file__).resolve().parent.parent / "extraction_module" / "dataset"
+multipart_available = getattr(uploads, "_MULTIPART_AVAILABLE", False)
 
 
 @pytest.fixture()
@@ -42,7 +44,8 @@ def _post(client, rel_path, content_type):
         return client.post("/api/scans/upload", files={"file": (path.name, fh, content_type)})
 
 
-@pytest.mark.skipif(not tesseract_available(), reason="Tesseract OCR binary not installed on host system")
+@pytest.mark.skipif(not (tesseract_available() and multipart_available),
+                    reason="Tesseract OCR or python-multipart not installed on host system")
 def test_image_is_extracted_then_scanned(client_and_calls):
     client, calls = client_and_calls
     r = _post(client, "images/img_clear_offer.png", "image/png")
@@ -54,6 +57,7 @@ def test_image_is_extracted_then_scanned(client_and_calls):
     assert body["scan"]["status"] == "completed"
 
 
+@pytest.mark.skipif(not multipart_available, reason="python-multipart not installed on host system")
 def test_text_layer_pdf_is_scanned(client_and_calls):
     client, calls = client_and_calls
     r = _post(client, "pdfs/pdf_selectable_text.pdf", "application/pdf")
@@ -61,6 +65,7 @@ def test_text_layer_pdf_is_scanned(client_and_calls):
     assert "SUMMER OFFER" in calls[0]["content_text"]
 
 
+@pytest.mark.skipif(not multipart_available, reason="python-multipart not installed on host system")
 @pytest.mark.parametrize("rel_path,code", [
     ("edge_cases/corrupt.png", "CORRUPT_FILE"),
     ("edge_cases/empty.png", "EMPTY_FILE"),
@@ -75,7 +80,8 @@ def test_bad_files_are_rejected_and_never_scanned(client_and_calls, rel_path, co
     assert calls == []          # a failed read must never reach the scanner
 
 
-@pytest.mark.skipif(not tesseract_available(), reason="Tesseract OCR binary not installed on host system")
+@pytest.mark.skipif(not (tesseract_available() and multipart_available),
+                    reason="Tesseract OCR or python-multipart not installed on host system")
 def test_blank_image_is_not_treated_as_clean(client_and_calls):
     client, calls = client_and_calls
     r = _post(client, "images/img_blank.png", "image/png")
@@ -126,3 +132,53 @@ def test_no_text_422_still_carries_visual_results(client_and_calls):
     assert detail["visual"] is not None
     assert VISUAL_KEYS <= set(detail["visual"])
     assert calls == []          # still never scanned
+
+
+def test_upload_fallback_returns_503_when_multipart_missing(client_and_calls):
+    """Verify that when python-multipart is absent, upload endpoint reports 503 instead of crashing."""
+    if multipart_available:
+        pytest.skip("python-multipart is installed")
+    client, _ = client_and_calls
+    r = client.post("/api/scans/upload")
+    assert r.status_code == 503
+    body = r.json()
+    assert "detail" in body
+    assert any(e.get("code") == "MULTIPART_UNAVAILABLE" for e in body["detail"]["errors"])
+
+
+def test_image_extraction_without_cv2_returns_controlled_error():
+    """Verify that image extraction without cv2 returns controlled OPENCV_UNAVAILABLE error."""
+    if opencv_available():
+        pytest.skip("OpenCV is installed; test is targeted for environments without cv2")
+    path = DATA / "images" / "img_clear_offer.png"
+    result = extract_content(str(path))
+    assert result["success"] is False
+    assert result["extraction_method"] == "none"
+    assert any(e["code"] == "OPENCV_UNAVAILABLE" for e in result["errors"])
+    assert result["human_review_required"] is True
+
+
+def test_plain_text_extraction_succeeds_without_cv2():
+    """Verify that plain text extraction works without requiring OpenCV."""
+    path = DATA / "edge_cases" / "offer.txt"
+    result = extract_content(str(path))
+    assert result["success"] is True
+    assert result["extraction_method"] == "plain_text"
+    assert "Customers club" in result["extracted_text"]
+    assert result["errors"] == []
+
+
+def test_bad_files_rejected_by_extraction_without_cv2():
+    """Verify bad files are rejected at extraction level without requiring OpenCV."""
+    empty_result = extract_content(str(DATA / "edge_cases" / "empty.png"))
+    assert empty_result["success"] is False
+    assert any(e["code"] == "EMPTY_FILE" for e in empty_result["errors"])
+
+    unsupported_result = extract_content(str(DATA / "edge_cases" / "unsupported.docx"))
+    assert unsupported_result["success"] is False
+    assert any(e["code"] == "UNSUPPORTED_FORMAT" for e in unsupported_result["errors"])
+
+
+def test_opencv_unavailable_mapped_to_503_in_upload_error_codes():
+    """Verify that OPENCV_UNAVAILABLE is mapped to HTTP 503 in upload router."""
+    assert "OPENCV_UNAVAILABLE" in uploads._SERVER_SIDE_CODES

@@ -6,8 +6,15 @@ Honesty rules for this file:
   that an image "passes WCAG".  ``wcag_verified`` is always False.
 """
 from __future__ import annotations
-import cv2
-import numpy as np
+try:
+    import cv2
+except ImportError:
+    cv2 = None
+
+try:
+    import numpy as np
+except ImportError:
+    np = None
 
 from . import config
 from .models import VisualWarning
@@ -40,6 +47,8 @@ def contrast_ratio(bgr1, bgr2) -> float:
 
 def blur_score(bgr: np.ndarray) -> float:
     """Variance of the Laplacian on a copy no larger than BLUR_NORMALISE_SIDE."""
+    if cv2 is None:
+        return 0.0
     gray = cv2.cvtColor(bgr, cv2.COLOR_BGR2GRAY)
     h, w = gray.shape
     longest = max(h, w)
@@ -64,6 +73,8 @@ def check_resolution(bgr: np.ndarray, page=None) -> list[VisualWarning]:
 
 
 def check_blur(bgr: np.ndarray, ocr_confidence: float | None, page=None) -> list[VisualWarning]:
+    if cv2 is None:
+        return []
     score = blur_score(bgr)
     if float(bgr.std()) < 3.0:      # essentially a flat/blank image: blur is meaningless
         return []

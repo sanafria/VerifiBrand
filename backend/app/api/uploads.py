@@ -34,8 +34,14 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/scans", tags=["Scan uploads"])
 
 # Extraction error codes that mean "server is missing a dependency", not "bad file".
-_SERVER_SIDE_CODES = {"OCR_UNAVAILABLE", "PDF_BACKEND_MISSING", "INTERNAL_ERROR"}
+_SERVER_SIDE_CODES = {"OCR_UNAVAILABLE", "PDF_BACKEND_MISSING", "INTERNAL_ERROR", "OPENCV_UNAVAILABLE"}
 _VISUAL_EXTS = {".png", ".jpg", ".jpeg", ".webp", ".bmp", ".tif", ".tiff", ".pdf"}
+
+try:
+    import multipart
+    _MULTIPART_AVAILABLE = True
+except ImportError:
+    _MULTIPART_AVAILABLE = False
 
 
 class ExtractionSummary(BaseModel):
@@ -105,94 +111,112 @@ def _confident_logo_box(result):
     return None, None
 
 
-@router.post(
-    "/upload",
-    response_model=UploadScanResponse,
-    status_code=status.HTTP_201_CREATED,
-    summary="Upload a file, extract its text, and scan it",
-    description=(
-        "Accepts an image, PDF or .txt file. Extracts text (OCR when needed), then runs the "
-        "same scan workflow as POST /api/scans. If no text can be extracted, nothing is "
-        "scanned and an error is returned."
-    ),
-)
-async def upload_and_scan(
-    file: UploadFile = File(...),
-    title: Optional[str] = Form(None),
-    draft_id: Optional[UUID] = Form(None),
-    scan_date: Optional[str] = Form(None),
-) -> UploadScanResponse:
-    original_name = Path(file.filename or "upload").name  # basename only, never a path
-    tmp_path = await _save_upload(file)
-    visual = None
-    try:
-        # OCR / PDF rendering is CPU-heavy and blocking: keep it off the event loop.
-        result = await asyncio.to_thread(extract_content, str(tmp_path), file.content_type)
-        if Path(original_name).suffix.lower() in _VISUAL_EXTS:
-            # visual checks must run before the temp file is deleted below
-            file_bytes = await asyncio.to_thread(tmp_path.read_bytes)
-            box, ref_size = _confident_logo_box(result)
-            visual = await asyncio.to_thread(
-                run_visual_checks, file_bytes, original_name, box, ref_size, box is not None)
-    finally:
-        tmp_path.unlink(missing_ok=True)
-    result["file_name"] = original_name
-
-    errors = result.get("errors", [])
-    if not result.get("success"):
-        codes = {e.get("code") for e in errors}
-        http_status = (
-            status.HTTP_503_SERVICE_UNAVAILABLE
-            if codes & _SERVER_SIDE_CODES
-            else 422
-        )
-        raise HTTPException(
-            status_code=http_status,
-            detail={
-                "message": "The file could not be processed. No scan was created.",
-                "errors": errors,
-                "warnings": result.get("warnings", []),
-            },
-        )
-
-    text = (result.get("extracted_text") or "").strip()
-    if not text:
-        raise HTTPException(
-            status_code=422,
-            detail={
-                "message": (
-                    "No readable text was found in this file. No scan was created. "
-                    "This is NOT a clean result - the file needs human review."
-                ),
-                "errors": [{"code": "NO_TEXT_EXTRACTED", "message": "Extraction produced no text."}],
-                "warnings": result.get("warnings", []),
-                "visual_warnings": result.get("visual_warnings", []),
-                "visual": visual.model_dump() if visual else None,
-            },
-        )
-
-    scan = await execute_scan(
-        title=(title or Path(original_name).stem or "Uploaded file")[:200],
-        content_text=text,
-        draft_id=draft_id,
-        scan_date_str=scan_date,
-    )
-
-    return UploadScanResponse(
-        scan=scan,
-        extraction=ExtractionSummary(
-            file_name=result["file_name"],
-            file_type=result.get("file_type", ""),
-            content_type=result.get("content_type", ""),
-            extraction_method=result.get("extraction_method", ""),
-            ocr=result.get("ocr", {}),
-            pages=result.get("pages", []),
-            entities=result.get("entities", {}),
-            visual_warnings=result.get("visual_warnings", []),
-            logo_matches=result.get("logo_matches", []),
-            warnings=result.get("warnings", []),
-            human_review_required=bool(result.get("human_review_required", True)),
-            review_reasons=result.get("review_reasons", []),
-            visual=visual.model_dump() if visual else None,
+if _MULTIPART_AVAILABLE:
+    @router.post(
+        "/upload",
+        response_model=UploadScanResponse,
+        status_code=status.HTTP_201_CREATED,
+        summary="Upload a file, extract its text, and scan it",
+        description=(
+            "Accepts an image, PDF or .txt file. Extracts text (OCR when needed), then runs the "
+            "same scan workflow as POST /api/scans. If no text can be extracted, nothing is "
+            "scanned and an error is returned."
         ),
     )
+    async def upload_and_scan(
+        file: UploadFile = File(...),
+        title: Optional[str] = Form(None),
+        draft_id: Optional[UUID] = Form(None),
+        scan_date: Optional[str] = Form(None),
+    ) -> UploadScanResponse:
+        original_name = Path(file.filename or "upload").name  # basename only, never a path
+        tmp_path = await _save_upload(file)
+        visual = None
+        try:
+            # OCR / PDF rendering is CPU-heavy and blocking: keep it off the event loop.
+            result = await asyncio.to_thread(extract_content, str(tmp_path), file.content_type)
+            if Path(original_name).suffix.lower() in _VISUAL_EXTS:
+                # visual checks must run before the temp file is deleted below
+                file_bytes = await asyncio.to_thread(tmp_path.read_bytes)
+                box, ref_size = _confident_logo_box(result)
+                visual = await asyncio.to_thread(
+                    run_visual_checks, file_bytes, original_name, box, ref_size, box is not None)
+        finally:
+            tmp_path.unlink(missing_ok=True)
+        result["file_name"] = original_name
+
+        errors = result.get("errors", [])
+        if not result.get("success"):
+            codes = {e.get("code") for e in errors}
+            http_status = (
+                status.HTTP_503_SERVICE_UNAVAILABLE
+                if codes & _SERVER_SIDE_CODES
+                else 422
+            )
+            raise HTTPException(
+                status_code=http_status,
+                detail={
+                    "message": "The file could not be processed. No scan was created.",
+                    "errors": errors,
+                    "warnings": result.get("warnings", []),
+                },
+            )
+
+        text = (result.get("extracted_text") or "").strip()
+        if not text:
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "message": (
+                        "No readable text was found in this file. No scan was created. "
+                        "This is NOT a clean result - the file needs human review."
+                    ),
+                    "errors": [{"code": "NO_TEXT_EXTRACTED", "message": "Extraction produced no text."}],
+                    "warnings": result.get("warnings", []),
+                    "visual_warnings": result.get("visual_warnings", []),
+                    "visual": visual.model_dump() if visual else None,
+                },
+            )
+
+        scan = await execute_scan(
+            title=(title or Path(original_name).stem or "Uploaded file")[:200],
+            content_text=text,
+            draft_id=draft_id,
+            scan_date_str=scan_date,
+        )
+
+        return UploadScanResponse(
+            scan=scan,
+            extraction=ExtractionSummary(
+                file_name=result["file_name"],
+                file_type=result.get("file_type", ""),
+                content_type=result.get("content_type", ""),
+                extraction_method=result.get("extraction_method", ""),
+                ocr=result.get("ocr", {}),
+                pages=result.get("pages", []),
+                entities=result.get("entities", {}),
+                visual_warnings=result.get("visual_warnings", []),
+                logo_matches=result.get("logo_matches", []),
+                warnings=result.get("warnings", []),
+                human_review_required=bool(result.get("human_review_required", True)),
+                review_reasons=result.get("review_reasons", []),
+                visual=visual.model_dump() if visual else None,
+            ),
+        )
+else:
+    @router.post(
+        "/upload",
+        response_model=UploadScanResponse,
+        status_code=status.HTTP_201_CREATED,
+        summary="Upload a file, extract its text, and scan it",
+        description="Upload route (unavailable: python-multipart not installed).",
+    )
+    async def upload_and_scan_fallback() -> UploadScanResponse:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={
+                "message": "File upload endpoint is unavailable. python-multipart is not installed.",
+                "errors": [{"code": "MULTIPART_UNAVAILABLE", "message": "python-multipart is required for multipart/form-data"}],
+                "warnings": [],
+            },
+        )

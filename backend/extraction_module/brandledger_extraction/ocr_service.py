@@ -6,8 +6,15 @@ Returns text plus per-word confidence and bounding boxes so other checks
 from __future__ import annotations
 from dataclasses import dataclass, field
 
-import cv2
-import numpy as np
+try:
+    import cv2
+except ImportError:
+    cv2 = None
+
+try:
+    import numpy as np
+except ImportError:
+    np = None
 
 from . import config
 
@@ -18,6 +25,11 @@ try:  # pytesseract is a thin wrapper; the Tesseract *program* is the real depen
         pytesseract.pytesseract.tesseract_cmd = config.TESSERACT_CMD
 except ImportError:  # pragma: no cover
     pytesseract = None
+
+
+def opencv_available() -> bool:
+    """Check if OpenCV (cv2) is installed and available."""
+    return cv2 is not None
 
 
 class OcrUnavailableError(RuntimeError):
@@ -81,6 +93,8 @@ def _run(gray: np.ndarray, lang: str) -> tuple[str, float, list]:
 
 def _enhance(gray: np.ndarray) -> tuple[np.ndarray, float]:
     """Upscale small images, boost local contrast, binarise. Returns (image, scale)."""
+    if cv2 is None:
+        return gray, 1.0
     h, w = gray.shape[:2]
     scale = 1.0
     if max(h, w) < 1600:
@@ -98,6 +112,8 @@ def _quality(words: list) -> float:
 
 def ocr_image(bgr: np.ndarray, lang: str | None = None) -> OcrResult:
     """OCR a BGR image. Tries a second, enhanced pass only when the first looks weak."""
+    if cv2 is None:
+        raise OcrUnavailableError("OpenCV (cv2) is not installed. Run `pip install opencv-python-headless`.")
     if pytesseract is None:
         raise OcrUnavailableError("pytesseract is not installed. Run `pip install pytesseract`.")
     lang = lang or config.OCR_LANG

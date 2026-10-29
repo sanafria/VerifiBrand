@@ -8,9 +8,21 @@ from __future__ import annotations
 import time
 from pathlib import Path
 
-import cv2
-import numpy as np
-from PIL import Image, ImageOps
+try:
+    import cv2
+except ImportError:
+    cv2 = None
+
+try:
+    import numpy as np
+except ImportError:
+    np = None
+
+try:
+    from PIL import Image, ImageOps
+except ImportError:
+    Image = None
+    ImageOps = None
 
 from . import config
 from .entity_extractor import extract_entities
@@ -20,7 +32,8 @@ from .models import ExtractionResult, PageResult, ProcessingError, VisualWarning
 from .ocr_service import OcrFailedError, OcrUnavailableError, ocr_image, tesseract_available
 from .pdf_utils import PdfBackendMissingError, PdfCorruptError, PdfEncryptedError, open_pdf
 
-Image.MAX_IMAGE_PIXELS = config.MAX_IMAGE_PIXELS
+if Image is not None:
+    Image.MAX_IMAGE_PIXELS = config.MAX_IMAGE_PIXELS
 
 
 def _sniff(head: bytes) -> str | None:
@@ -41,6 +54,8 @@ def _sniff(head: bytes) -> str | None:
 
 
 def _decode_image(path: Path) -> np.ndarray:
+    if Image is None or np is None:
+        raise RuntimeError("Image processing dependencies (Pillow, numpy) are not installed.")
     with Image.open(path) as img:
         img = ImageOps.exif_transpose(img)
         rgb = np.array(img.convert("RGB"))
@@ -154,6 +169,9 @@ def _library(result, logo_dir):
 
 
 def _process_image(path, result, run_visual, run_logos, logo_dir):
+    if cv2 is None:
+        return _fail(result, "OPENCV_UNAVAILABLE",
+                     "OpenCV (cv2) is not installed. Image extraction and visual checks require opencv-python-headless.")
     try:
         bgr = _decode_image(path)
     except Exception as exc:
