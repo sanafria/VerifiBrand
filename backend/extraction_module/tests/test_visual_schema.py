@@ -32,3 +32,14 @@ def test_result_defaults_not_processed_claims():
 
 def test_result_has_skipped_field():
     assert VisualResult(processed=True).skipped == []
+
+
+def test_brand_rules_cards_have_ids_and_quotes():
+    import json
+    from pathlib import Path
+    import brandledger_extraction
+    path = Path(brandledger_extraction.__file__).parent / "brand_rules.json"
+    rules = json.loads(path.read_text(encoding="utf-8"))["rules"]
+    assert set(rules) == {"visual_colour", "visual_typography", "visual_layout", "visual_clearspace"}
+    for card in rules.values():
+        assert card["policy_card_id"] and card["policy_version"] and card["quote"].strip()
