@@ -31,10 +31,13 @@ function PolicyLibraryContent() {
   const [editingPolicy, setEditingPolicy] = useState<PolicyCard | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
 
+  const [error, setError] = useState<string | null>(null);
+
   const [, startTransition] = useTransition();
 
   const loadPolicies = async () => {
     setLoading(true);
+    setError(null);
     try {
       const result = await policyClient.getPolicies(filters);
       startTransition(() => {
@@ -44,6 +47,7 @@ function PolicyLibraryContent() {
       });
     } catch (err) {
       console.error('Failed to load policies:', err);
+      setError((err as Error).message || 'Failed to load policies from server');
     } finally {
       setLoading(false);
     }
@@ -150,6 +154,13 @@ function PolicyLibraryContent() {
         onChange={setFilters}
         onCreateClick={handleCreateNew}
       />
+
+      {error && (
+        <div style={{ background: '#fef2f2', border: '1px solid #f87171', borderRadius: '8px', padding: '12px 16px', color: '#991b1b', margin: '16px 0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <span><strong>Server Error:</strong> {error}</span>
+          <button type="button" onClick={loadPolicies} style={{ background: '#dc2626', color: '#fff', border: 'none', padding: '6px 14px', borderRadius: '6px', cursor: 'pointer', fontWeight: 600 }}>Retry Connection</button>
+        </div>
+      )}
 
       {/* Policy Grid */}
       {loading ? (

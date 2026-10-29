@@ -29,6 +29,9 @@ class Settings(BaseSettings):
     # Optional AI Key (Zynab's engine integration)
     OPENAI_API_KEY: str = ""
 
+    # Agent Authentication Key (Member 2 agent tools security)
+    AGENT_API_KEY: str = ""
+
     @field_validator("ALLOWED_ORIGINS", mode="before")
     @classmethod
     def assemble_cors_origins(cls, v: Union[str, List[str]]) -> List[str]:

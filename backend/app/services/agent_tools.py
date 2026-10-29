@@ -477,3 +477,33 @@ def verify_merkle_proof(
         proof=proof,
         expected_root=expected_root,
     )
+
+
+# ---------------------------------------------------------------------------
+# Member 2: Policy & Passport Authoritative Agent Tools
+# ---------------------------------------------------------------------------
+from backend.app.services.policy_agent_tools import (
+    explain_finding,
+    get_approved_policies,
+    get_passport,
+    get_policy_details,
+    verify_passport,
+)
+
+__all__ = [
+    "ComplianceDecision",
+    "EvidenceCitation",
+    "GetFindingsResult",
+    "ScanCreativeInput",
+    "ScanCreativeResult",
+    "evaluate_compliance_decision",
+    "explain_finding",
+    "get_approved_policies",
+    "get_findings",
+    "get_passport",
+    "get_policy_details",
+    "scan_creative",
+    "verify_merkle_proof",
+    "verify_passport",
+]
+
