@@ -31,6 +31,22 @@ function isBackendEnabled(): boolean {
   return process.env.NEXT_PUBLIC_USE_BACKEND_CRUD !== 'false';
 }
 
+function isNetworkConnectionError(err: unknown): boolean {
+  if (!err) return false;
+  const errorObj = err as { message?: string; code?: string; cause?: { code?: string } };
+  const msg = String(errorObj.message || err);
+  const code = String(errorObj.code || errorObj.cause?.code || '');
+  return (
+    msg.includes('fetch failed') ||
+    msg.includes('Failed to fetch') ||
+    msg.includes('NetworkError') ||
+    msg.includes('network error') ||
+    msg.includes('ECONNREFUSED') ||
+    code === 'ECONNREFUSED' ||
+    code === 'ENOTFOUND'
+  );
+}
+
 export interface BackendPolicyResponse {
   id: string;
   policy_key?: string;
@@ -72,14 +88,18 @@ export function mapCardTypeToCategory(cardType?: string): PolicyCategory {
 export function mapBackendToFrontendPolicy(b: BackendPolicyResponse): PolicyCard {
   const category: PolicyCategory = mapCardTypeToCategory(b.card_type);
 
-  const statusMap: Record<string, PolicyStatus> = {
-    active: 'approved',
-    inactive: 'archived',
-    approved: 'approved',
-    archived: 'archived',
-    draft: 'draft',
-  };
-  const status: PolicyStatus = statusMap[b.status?.toLowerCase()] || 'approved';
+  const rawStatus = (b.status || '').toLowerCase().trim();
+  let status: PolicyStatus;
+  if (rawStatus === 'active' || rawStatus === 'approved') {
+    status = 'approved';
+  } else if (rawStatus === 'inactive' || rawStatus === 'archived') {
+    status = 'archived';
+  } else if (rawStatus === 'draft') {
+    status = 'draft';
+  } else {
+    // Unknown status defaults safely to 'draft', NEVER silently 'approved'
+    status = 'draft';
+  }
 
   const rules = Array.isArray(b.rules) && b.rules.length > 0
     ? b.rules
@@ -125,20 +145,27 @@ export function mapFrontendToBackendPayload(f: Partial<PolicyCard>): Record<stri
     (f.metadata?.source_quote as string) ||
     (f.content ? f.content.slice(0, 100) : '');
 
-  return {
+  const payload: Record<string, any> = {
     title: f.title,
     card_type,
     rule_text: f.content,
     approved_value: (f.metadata?.approved_value as string) || (f.rules?.[0] as any)?.replacement || null,
     source_quote,
     status,
-    policy_key: f.id,
     rules: f.rules || [],
     metadata: f.metadata || {},
   };
+
+  if (f.metadata?.policy_key) {
+    payload.policy_key = f.metadata.policy_key;
+  } else if (f.id && !f.id.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+    payload.policy_key = f.id;
+  }
+
+  return payload;
 }
 
-class PolicyClient {
+export class PolicyClient {
   private inMemoryPolicies: PolicyCard[] = [...INITIAL_POLICY_CARDS];
   private inMemoryBrands: BrandProfile[] = [...INITIAL_BRAND_PROFILES];
 
@@ -196,7 +223,7 @@ class PolicyClient {
     if (!normContent.includes(normQuote)) {
       return {
         isValid: false,
-        error: `Source quote does not exist as an exact substring in the policy text. Every rule requires direct textual evidence.`,
+        error: 'Source quote does not exist as an exact substring in the policy text. Every rule requires direct textual evidence.',
       };
     }
     return { isValid: true };
@@ -239,8 +266,26 @@ class PolicyClient {
           let mapped = items.map(mapBackendToFrontendPolicy);
 
           // Update local memory cache with latest authoritative data
-          if (mapped.length > 0) {
+          const hasFilters = Boolean(
+            (filters?.category && filters.category !== 'all') ||
+            (filters?.status && filters.status !== 'all') ||
+            (filters?.searchQuery && filters.searchQuery.trim()) ||
+            (filters?.brandId && filters.brandId !== 'all')
+          );
+          if (!hasFilters && mapped.length > 0) {
             this.inMemoryPolicies = mapped;
+            this.persistPolicies();
+          } else if (hasFilters && mapped.length > 0) {
+            for (const item of mapped) {
+              const idx = this.inMemoryPolicies.findIndex(
+                (p) => p.id === item.id || (p.metadata?.backend_id && p.metadata.backend_id === item.metadata?.backend_id)
+              );
+              if (idx !== -1) {
+                this.inMemoryPolicies[idx] = item;
+              } else {
+                this.inMemoryPolicies.push(item);
+              }
+            }
             this.persistPolicies();
           }
 
@@ -271,8 +316,17 @@ class PolicyClient {
             total: envelope.total !== undefined ? envelope.total : mapped.length,
             dataSource: 'backend_api',
           };
+        } else {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.detail || `Backend error: status ${res.status}`);
         }
-      } catch (err) {
+      } catch (err: unknown) {
+        if (process.env.NEXT_PUBLIC_USE_BACKEND_CRUD === 'true') {
+          throw err;
+        }
+        if (!isNetworkConnectionError(err)) {
+          throw err;
+        }
         console.warn('Backend policy request failed, falling back to local adapter:', err);
       }
     }
@@ -333,15 +387,37 @@ class PolicyClient {
           headers: { 'Content-Type': 'application/json' },
           cache: 'no-store',
         });
+
         if (res.ok) {
           const data: BackendPolicyResponse = await res.json();
           return mapBackendToFrontendPolicy(data);
         }
-      } catch {
-        // Fall back to memory
+
+        if (res.status === 404) {
+          if (process.env.NEXT_PUBLIC_USE_BACKEND_CRUD === 'true') {
+            return null;
+          }
+          const localMatch = this.inMemoryPolicies.find(
+            (p) => p.id === id || p.metadata?.backend_id === id
+          );
+          return localMatch || null;
+        }
+
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.detail || `Backend error: status ${res.status}`);
+      } catch (err: unknown) {
+        if (process.env.NEXT_PUBLIC_USE_BACKEND_CRUD === 'true') {
+          throw err;
+        }
+        if (!isNetworkConnectionError(err)) {
+          throw err;
+        }
       }
     }
-    const policy = this.inMemoryPolicies.find((p) => p.id === id);
+
+    const policy = this.inMemoryPolicies.find(
+      (p) => p.id === id || p.metadata?.backend_id === id
+    );
     return policy || null;
   }
 
@@ -351,15 +427,15 @@ class PolicyClient {
    */
   public async createPolicy(newPolicy: Omit<PolicyCard, 'created_at' | 'updated_at'>): Promise<PolicyCard> {
     // 1. Check ID uniqueness in local memory
-    if (this.inMemoryPolicies.some((p) => p.id === newPolicy.id)) {
+    if (this.inMemoryPolicies.some((p) => p.id === newPolicy.id || p.metadata?.backend_id === newPolicy.id)) {
       throw new Error(`Policy ID '${newPolicy.id}' already exists. Policy identifiers must be unique.`);
     }
 
     // 2. Validate quote integrity ("No receipt, no flag")
     const quote =
-      (newPolicy.metadata.quote as string) ||
-      (newPolicy.rules[0] && (newPolicy.rules[0] as { quote?: string }).quote) ||
-      (newPolicy.metadata.source_quote as string);
+      (newPolicy.metadata?.quote as string) ||
+      (newPolicy.rules?.[0] && (newPolicy.rules[0] as { quote?: string }).quote) ||
+      (newPolicy.metadata?.source_quote as string);
     if (quote) {
       const check = this.verifyQuoteIntegrity(newPolicy.content, quote);
       if (!check.isValid) {
@@ -386,14 +462,14 @@ class PolicyClient {
           const errData = await res.json().catch(() => ({}));
           throw new Error(errData.detail || `Backend error: status ${res.status}`);
         }
-      } catch (err: any) {
-        // If server actively rejected or failed, throw without silent false success
-        if (err.message && !err.message.includes('fetch failed') && !err.message.includes('ECONNREFUSED')) {
-          throw err;
-        }
+      } catch (err: unknown) {
         if (process.env.NEXT_PUBLIC_USE_BACKEND_CRUD === 'true') {
           throw err;
         }
+        if (!isNetworkConnectionError(err)) {
+          throw err;
+        }
+        console.warn('Backend offline or unavailable, falling back to local adapter:', err);
       }
     }
 
@@ -415,7 +491,9 @@ class PolicyClient {
    * If updating an approved policy, advances the version string or marks updated.
    */
   public async updatePolicy(id: string, updates: Partial<PolicyCard>): Promise<PolicyCard> {
-    const index = this.inMemoryPolicies.findIndex((p) => p.id === id);
+    const index = this.inMemoryPolicies.findIndex(
+      (p) => p.id === id || p.metadata?.backend_id === id
+    );
     if (index === -1) {
       throw new Error(`Policy with ID '${id}' not found.`);
     }
@@ -425,7 +503,11 @@ class PolicyClient {
     const quote =
       updates.metadata?.quote !== undefined
         ? (updates.metadata.quote as string)
-        : (current.metadata.quote as string);
+        : (current.metadata?.quote as string) ||
+          (updates.rules?.[0] as any)?.quote ||
+          (current.rules?.[0] as any)?.quote ||
+          (updates.metadata?.source_quote as string) ||
+          (current.metadata?.source_quote as string);
 
     if (quote) {
       const check = this.verifyQuoteIntegrity(content, quote);
@@ -436,7 +518,7 @@ class PolicyClient {
 
     if (isBackendEnabled()) {
       try {
-        const targetId = (current.metadata?.backend_id as string) || id;
+        const targetId = (current.metadata?.backend_id as string) || current.id || id;
         const backendPayload = mapFrontendToBackendPayload({ ...current, ...updates });
         const res = await fetch(`${API_BASE_URL}/api/policies/${encodeURIComponent(targetId)}`, {
           method: 'PATCH',
@@ -454,13 +536,14 @@ class PolicyClient {
           const errData = await res.json().catch(() => ({}));
           throw new Error(errData.detail || `Backend update failed (HTTP ${res.status})`);
         }
-      } catch (err: any) {
-        if (err.message && !err.message.includes('fetch failed') && !err.message.includes('ECONNREFUSED')) {
-          throw err;
-        }
+      } catch (err: unknown) {
         if (process.env.NEXT_PUBLIC_USE_BACKEND_CRUD === 'true') {
           throw err;
         }
+        if (!isNetworkConnectionError(err)) {
+          throw err;
+        }
+        console.warn('Backend offline or unavailable, falling back to local adapter:', err);
       }
     }
 
@@ -481,10 +564,13 @@ class PolicyClient {
    * Archive a policy.
    */
   public async archivePolicy(id: string): Promise<PolicyCard> {
+    const current = this.inMemoryPolicies.find(
+      (p) => p.id === id || p.metadata?.backend_id === id
+    );
+    const targetId = (current?.metadata?.backend_id as string) || current?.id || id;
+
     if (isBackendEnabled()) {
       try {
-        const current = this.inMemoryPolicies.find((p) => p.id === id);
-        const targetId = (current?.metadata?.backend_id as string) || id;
         let res = await fetch(`${API_BASE_URL}/api/policies/${encodeURIComponent(targetId)}/archive`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -501,7 +587,9 @@ class PolicyClient {
         if (res.ok) {
           const updatedBackend: BackendPolicyResponse = await res.json();
           const mapped = mapBackendToFrontendPolicy(updatedBackend);
-          const index = this.inMemoryPolicies.findIndex((p) => p.id === id);
+          const index = this.inMemoryPolicies.findIndex(
+            (p) => p.id === id || p.metadata?.backend_id === id
+          );
           if (index !== -1) {
             this.inMemoryPolicies[index] = mapped;
             this.persistPolicies();
@@ -511,13 +599,14 @@ class PolicyClient {
           const errData = await res.json().catch(() => ({}));
           throw new Error(errData.detail || `Backend archive failed (HTTP ${res.status})`);
         }
-      } catch (err: any) {
-        if (err.message && !err.message.includes('fetch failed') && !err.message.includes('ECONNREFUSED')) {
-          throw err;
-        }
+      } catch (err: unknown) {
         if (process.env.NEXT_PUBLIC_USE_BACKEND_CRUD === 'true') {
           throw err;
         }
+        if (!isNetworkConnectionError(err)) {
+          throw err;
+        }
+        console.warn('Backend offline or unavailable, falling back to local adapter:', err);
       }
     }
     return this.updatePolicy(id, { status: 'archived' });
@@ -540,14 +629,15 @@ class PolicyClient {
   }
 
   public async getBrandProfile(brandId: string): Promise<BrandProfile | null> {
-    return this.inMemoryBrands.find((b) => b.id === brandId) || this.inMemoryBrands[0] || null;
+    const brand = this.inMemoryBrands.find((b) => b.id === brandId);
+    return brand || null;
   }
 
   /**
    * Dedicated export contract for the Scan Workspace
    * and Rules Engine.
    * 
-   * Returns ONLY approved policies (excluding drafts and archived policies),
+   * Returns ONLY approved policies (strictly excluding drafts and archived policies),
    * formatted strictly to match backend/app/schemas/policy.py:PolicyCard.
    */
   public async getApprovedPoliciesForScan(brandId?: string): Promise<Array<Record<string, unknown>>> {
@@ -556,7 +646,9 @@ class PolicyClient {
       brandId: brandId && brandId !== 'all' ? brandId : undefined,
     });
 
-    return policies.map((p) => ({
+    const approvedOnly = policies.filter((p) => p.status === 'approved');
+
+    return approvedOnly.map((p) => ({
       id: p.id,
       version: p.version,
       title: p.title || '',

@@ -138,3 +138,97 @@ def test_7_deactivate_policy(client: TestClient) -> None:
     )
     assert patch_res.status_code == 200
     assert patch_res.json()["status"] == "inactive"
+
+
+def test_8_json_string_decoding_resilience() -> None:
+    """Verify rules and metadata are decoded safely from single and double-encoded JSON strings."""
+    from backend.app.api.policies import _parse_json_rules, _parse_json_metadata, _row_to_response
+    import datetime
+
+    # 1. Native Python list and dict
+    assert _parse_json_rules([{"type": "claim"}]) == [{"type": "claim"}]
+    assert _parse_json_metadata({"author": "Nimra"}) == {"author": "Nimra"}
+
+    # 2. Single-encoded JSON strings (as returned by asyncpg from PostgreSQL JSONB)
+    assert _parse_json_rules('[{"type": "claim"}]') == [{"type": "claim"}]
+    assert _parse_json_metadata('{"author": "Nimra"}') == {"author": "Nimra"}
+    assert _parse_json_rules('[]') == []
+    assert _parse_json_metadata('{}') == {}
+
+    # 3. Double-encoded JSON strings (regression for double-serialization defect)
+    assert _parse_json_rules('"[]"') == []
+    assert _parse_json_metadata('"{}"') == {}
+    assert _parse_json_rules('"[{\\"type\\": \\"claim\\"}]"') == [{"type": "claim"}]
+
+    # 4. None and empty strings safely default
+    assert _parse_json_rules(None) == []
+    assert _parse_json_metadata(None) == {}
+    assert _parse_json_rules("") == []
+    assert _parse_json_metadata("") == {}
+
+    # 5. Full _row_to_response with double-encoded JSON succeeds without Pydantic validation error
+    dummy_row = {
+        "id": uuid.uuid4(),
+        "policy_key": "pol_test_json",
+        "title": "JSON Decoding Test Policy",
+        "card_type": "offer",
+        "rule_text": "Valid rule text for test.",
+        "approved_value": "100%",
+        "source_quote": "Valid rule text for test.",
+        "valid_from": None,
+        "valid_until": None,
+        "severity": "blocker",
+        "status": "active",
+        "version": 1,
+        "rules": '"[]"',  # double-serialized string
+        "metadata": '"{}"',  # double-serialized string
+        "created_at": datetime.datetime.now(datetime.timezone.utc),
+        "updated_at": datetime.datetime.now(datetime.timezone.utc),
+    }
+    response_model = _row_to_response(dummy_row)
+    assert isinstance(response_model.rules, list)
+    assert isinstance(response_model.metadata, dict)
+    assert response_model.rules == []
+    assert response_model.metadata == {}
+
+
+def test_9_database_update_error_reports_500_not_404(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Verify that an unexpected database failure during PATCH is reported as HTTP 500, NOT 404."""
+    import backend.app.api.policies as policy_module
+    import datetime
+
+    dummy_id = uuid.uuid4()
+    dummy_existing = {
+        "id": dummy_id,
+        "policy_key": "pol_existing",
+        "title": "Existing Policy",
+        "card_type": "offer",
+        "rule_text": "Rule text",
+        "approved_value": None,
+        "source_quote": "Source quote",
+        "valid_from": None,
+        "valid_until": None,
+        "severity": "blocker",
+        "status": "active",
+        "version": 1,
+        "rules": "[]",
+        "metadata": "{}",
+        "created_at": datetime.datetime.now(datetime.timezone.utc),
+        "updated_at": datetime.datetime.now(datetime.timezone.utc),
+    }
+
+    # Simulate active database connection
+    monkeypatch.setattr(policy_module, "_is_db_connected", lambda: True)
+
+    async def mock_fetchrow(query, *args):
+        if "SELECT * FROM policy_cards" in query:
+            return dummy_existing
+        # Simulate unexpected database error during UPDATE statement
+        raise RuntimeError("Simulated database connection drop")
+
+    monkeypatch.setattr(policy_module.db_manager, "fetchrow", mock_fetchrow)
+
+    res = client.patch(f"/api/policies/{dummy_id}", json={"rule_text": "Updated rule text."})
+    # Must be 500 server error, NEVER misreported as 404 "not found"
+    assert res.status_code == 500
+    assert "Database update failed" in res.json()["detail"]

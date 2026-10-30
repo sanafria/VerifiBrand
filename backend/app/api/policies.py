@@ -166,16 +166,65 @@ def reset_mock_policies() -> None:
 
 
 
-def _parse_json_field(val: Any, default: Any) -> Any:
-    """Helper to deserialize string JSON fields into dict/list."""
+def _parse_json_field(val: Any, default: Any, expected_type: Optional[type] = None) -> Any:
+    """Helper to safely deserialize JSON fields into Python dict or list.
+
+    Handles:
+    - Already decoded dict/list
+    - Single-encoded JSON string ('[]' -> [])
+    - Double-encoded JSON string ('"[]"' -> [])
+    - None or empty string -> default
+    - Ensures result matches expected_type if specified
+    """
+    if val is None:
+        return default
+
     if isinstance(val, (dict, list)):
-        return val
-    if isinstance(val, str) and val.strip():
-        try:
-            return json.loads(val)
-        except Exception:
+        if expected_type and not isinstance(val, expected_type):
             return default
+        return val
+
+    if isinstance(val, str):
+        cleaned = val.strip()
+        if not cleaned:
+            return default
+        try:
+            parsed = json.loads(cleaned)
+            # Handle possible double-serialization in database (e.g. '"[]"' -> '[]')
+            if isinstance(parsed, str) and (parsed.startswith("{") or parsed.startswith("[")):
+                try:
+                    parsed2 = json.loads(parsed)
+                    if isinstance(parsed2, (dict, list)):
+                        parsed = parsed2
+                except Exception:
+                    pass
+            if expected_type and not isinstance(parsed, expected_type):
+                logger.warning(
+                    "Parsed JSON field expected %s but got %s: %s",
+                    expected_type.__name__,
+                    type(parsed).__name__,
+                    val,
+                )
+                return default
+            if isinstance(parsed, (dict, list)):
+                return parsed
+        except Exception as exc:
+            logger.warning("Failed to decode JSON field: %s (error: %s)", val, exc)
+            return default
+
     return default
+
+
+def _parse_json_rules(val: Any) -> list:
+    """Safely decode rules column into a Python list."""
+    res = _parse_json_field(val, default=[], expected_type=list)
+    return res if isinstance(res, list) else []
+
+
+def _parse_json_metadata(val: Any) -> dict:
+    """Safely decode metadata column into a Python dict."""
+    res = _parse_json_field(val, default={}, expected_type=dict)
+    return res if isinstance(res, dict) else {}
 
 
 def _row_to_response(row: Union[dict, Any]) -> PolicyCardResponse:
@@ -194,9 +243,9 @@ def _row_to_response(row: Union[dict, Any]) -> PolicyCardResponse:
         else (row["policy_key"] if "policy_key" in row else None)
     )
 
-    rules_val = _parse_json_field(row.get("rules") if is_dict else row["rules"], [])
-    meta_val = _parse_json_field(
-        row.get("metadata") if is_dict else row["metadata"], {}
+    rules_val = _parse_json_rules(row.get("rules") if is_dict else row["rules"])
+    meta_val = _parse_json_metadata(
+        row.get("metadata") if is_dict else row["metadata"]
     )
 
     raw_status = row.get("status") if is_dict else row["status"]
@@ -386,8 +435,8 @@ async def create_policy(payload: PolicyCardCreate) -> PolicyCardResponse:
                 payload.valid_until,
                 payload.severity.value,
                 initial_status.value,
-                json.dumps(payload.rules),
-                json.dumps(payload.metadata),
+                json.dumps(payload.rules if isinstance(payload.rules, list) else []),
+                json.dumps(payload.metadata if isinstance(payload.metadata, dict) else {}),
                 now,
             )
 
@@ -403,15 +452,19 @@ async def create_policy(payload: PolicyCardCreate) -> PolicyCardResponse:
                     row["valid_from"],
                     row["valid_until"],
                     row["severity"],
-                    json.dumps(payload.rules),
-                    json.dumps(payload.metadata),
+                    json.dumps(payload.rules if isinstance(payload.rules, list) else []),
+                    json.dumps(payload.metadata if isinstance(payload.metadata, dict) else {}),
                     now,
                 )
                 return _row_to_response(row)
         except HTTPException:
             raise
         except Exception as exc:
-            logger.warning("Database insert failed, persisting to in-memory store: %s", exc)
+            logger.error("Database insert failed: %s", exc, exc_info=True)
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Database insert failed: {exc}",
+            )
 
     # In-memory store fallback
     new_card: Dict[str, Any] = {
@@ -535,7 +588,11 @@ async def get_policy(
         except HTTPException:
             raise
         except Exception as exc:
-            logger.warning("DB lookup failed, trying in-memory store: %s", exc)
+            logger.error("DB lookup failed for policy '%s': %s", policy_id, exc, exc_info=True)
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Database lookup failed: {exc}",
+            )
 
     # In-memory store fallback
     matched_card: Optional[Dict[str, Any]] = None
@@ -641,12 +698,20 @@ async def update_policy(
             new_card_type = (
                 payload.card_type.value if payload.card_type is not None else existing["card_type"]
             )
-            new_rules = (
-                json.dumps(payload.rules) if payload.rules is not None else json.dumps(existing["rules"])
-            )
-            new_metadata = (
-                json.dumps(payload.metadata) if payload.metadata is not None else json.dumps(existing["metadata"])
-            )
+            existing_rules_parsed = _parse_json_rules(existing["rules"])
+            existing_metadata_parsed = _parse_json_metadata(existing["metadata"])
+
+            if payload.rules is not None:
+                rules_to_save = payload.rules if isinstance(payload.rules, list) else []
+            else:
+                rules_to_save = existing_rules_parsed
+            new_rules = json.dumps(rules_to_save)
+
+            if payload.metadata is not None:
+                metadata_to_save = payload.metadata if isinstance(payload.metadata, dict) else {}
+            else:
+                metadata_to_save = existing_metadata_parsed
+            new_metadata = json.dumps(metadata_to_save)
 
             # Check if content changed
             content_changed = (
@@ -658,7 +723,8 @@ async def update_policy(
                 or new_valid_until != existing["valid_until"]
                 or new_severity != existing["severity"]
                 or new_card_type != existing["card_type"]
-                or (payload.rules is not None and json.dumps(payload.rules) != json.dumps(existing["rules"]))
+                or (payload.rules is not None and rules_to_save != existing_rules_parsed)
+                or (payload.metadata is not None and metadata_to_save != existing_metadata_parsed)
             )
 
             new_version = existing["version"] + 1 if content_changed else existing["version"]
@@ -711,7 +777,7 @@ async def update_policy(
             if not updated_row:
                 raise HTTPException(
                     status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail="Failed to update policy card record.",
+                    detail="Failed to update policy card record in database.",
                 )
 
             if content_changed:
@@ -736,7 +802,11 @@ async def update_policy(
         except HTTPException:
             raise
         except Exception as exc:
-            logger.warning("Database update failed, updating in-memory store: %s", exc)
+            logger.error("Database update failed for policy '%s': %s", policy_id, exc, exc_info=True)
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Database update failed: {exc}",
+            )
 
     # In-memory store fallback
     matched_idx = -1
