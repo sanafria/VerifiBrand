@@ -8,7 +8,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "node --experimental-strip-types --test src/__tests__/policy.test.ts src/__tests__/image_workflow.test.ts"
+    "test": "node --experimental-strip-types --test src/__tests__/policy.test.ts src/__tests__/image_workflow.test.ts src/__tests__/scrape.test.ts"
   },
   "dependencies": {
     "lucide-react": "^1.61.0",

@@ -6,7 +6,8 @@ import {
   Shield, AlertTriangle, CheckCircle2, Sparkles, Cpu,
   RefreshCw, ArrowRight, Quote, Sliders, Check, FileText,
   BarChart2, History, Award, Upload, Image as ImageIcon,
-  X, AlertCircle, Edit3, Trash2, CheckCircle, Eye
+  X, AlertCircle, Edit3, Trash2, CheckCircle, Eye,
+  Globe, ExternalLink, Link2
 } from 'lucide-react';
 import { policyClient } from '@/lib/api/policyClient';
 import { reviewClient } from '@/lib/api/reviewClient';
@@ -161,6 +162,21 @@ export default function ScanWorkspacePage() {
     textExtraction: 'idle',
     visualChecks: 'pending',
   });
+
+  // Live Website URL Ingestion State
+  const [ingestionMode, setIngestionMode] = useState<'upload' | 'url'>('upload');
+  const [targetUrl, setTargetUrl] = useState<string>('');
+  const [isUrlFetching, setIsUrlFetching] = useState<boolean>(false);
+  const [urlFetchError, setUrlFetchError] = useState<string | null>(null);
+  const [scrapedPageData, setScrapedPageData] = useState<{
+    url: string;
+    hostname: string;
+    title: string;
+    description: string;
+    headings: string[];
+    wordCount: number;
+    charCount: number;
+  } | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
@@ -436,8 +452,9 @@ export default function ScanWorkspacePage() {
   };
 
   // Execute Scan against FastAPI Backend with Deterministic Fallback
-  const handleExecuteScan = async () => {
-    if (!contentText.trim()) {
+  const handleExecuteScan = async (overrideContent?: string | React.MouseEvent) => {
+    const textToScan = typeof overrideContent === 'string' ? overrideContent : contentText;
+    if (!textToScan.trim()) {
       showToast('Please provide draft content to scan.');
       return;
     }
@@ -452,7 +469,7 @@ export default function ScanWorkspacePage() {
 
       // 2. Prepare payload matching ScanDraftRequest
       const payload = {
-        content_text: contentText,
+        content_text: textToScan,
         policy_cards: policies,
         scan_date: scanDate,
       };
@@ -471,22 +488,91 @@ export default function ScanWorkspacePage() {
 
         // Apply AdaptionLabs Tone & Superlative check if enabled
         if (adaptionLabsAi) {
-          scannedFindings = enrichWithAdaptionLabs(scannedFindings, contentText);
+          scannedFindings = enrichWithAdaptionLabs(scannedFindings, textToScan);
         }
 
         setFindings(scannedFindings);
         setEngineSource('fastapi_backend');
       } else {
         // Fallback to verified blueprint engine
-        runLocalBlueprintScan(contentText, scanDate);
+        runLocalBlueprintScan(textToScan, scanDate);
       }
     } catch {
       // Offline / network fallback guarantees the hackathon demo never fails
-      runLocalBlueprintScan(contentText, scanDate);
+      runLocalBlueprintScan(textToScan, scanDate);
     } finally {
       setScanning(false);
       setHasScanned(true);
     }
+  };
+
+  // Scrape and extract marketing copy from live URL
+  const handleScrapeUrl = async (presetUrl?: string) => {
+    const urlToScrape = (presetUrl || targetUrl).trim();
+    if (!urlToScrape) {
+      showToast('Please enter a website URL to scan.');
+      return;
+    }
+
+    if (!urlToScrape.startsWith('http://') && !urlToScrape.startsWith('https://')) {
+      showToast('Please include http:// or https:// in the URL.');
+      return;
+    }
+
+    if (presetUrl) {
+      setTargetUrl(presetUrl);
+    }
+
+    setIsUrlFetching(true);
+    setUrlFetchError(null);
+
+    try {
+      const res = await fetch('/api/scrape', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: urlToScrape }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Failed to extract content from webpage.');
+      }
+
+      setScrapedPageData({
+        url: data.url,
+        hostname: data.hostname,
+        title: data.title,
+        description: data.description || '',
+        headings: data.headings || [],
+        wordCount: data.word_count,
+        charCount: data.char_count,
+      });
+
+      if (data.title && !title) {
+        setTitle(data.title);
+      }
+
+      setContentText(data.text);
+      showToast(`Extracted ${data.word_count} words from ${data.hostname}`);
+
+      // Instantly run compliance scan on extracted website copy
+      setTimeout(() => {
+        handleExecuteScan(data.text);
+      }, 250);
+    } catch (err: unknown) {
+      const msg = (err as Error)?.message || 'Could not fetch website content.';
+      setUrlFetchError(msg);
+      showToast(msg);
+    } finally {
+      setIsUrlFetching(false);
+    }
+  };
+
+  const handleClearScrapedUrl = () => {
+    setScrapedPageData(null);
+    setTargetUrl('');
+    setUrlFetchError(null);
   };
 
   // Verified Local Blueprint Scan (100% mirrors backend/app/services/policy_engine.py)
@@ -751,118 +837,223 @@ export default function ScanWorkspacePage() {
             </select>
           </div>
 
-          {/* File Upload / OCR Dropzone & Preview Card */}
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".png,.jpg,.jpeg,.webp,.avif,.pdf"
-            style={{ display: 'none' }}
-            onChange={handleFileInputChange}
-          />
+          {/* Ingestion Source Mode Switcher */}
+          <div className={styles.ingestionTabs} data-tour="workspace-ingestion-tabs">
+            <button
+              type="button"
+              className={`${styles.ingestionTab} ${ingestionMode === 'upload' ? styles.ingestionTabActive : ''}`}
+              onClick={() => setIngestionMode('upload')}
+            >
+              <Upload size={14} />
+              <span>Asset / OCR Upload</span>
+            </button>
+            <button
+              type="button"
+              className={`${styles.ingestionTab} ${ingestionMode === 'url' ? styles.ingestionTabActive : ''}`}
+              onClick={() => setIngestionMode('url')}
+            >
+              <Globe size={14} />
+              <span>Scan Live Website URL</span>
+            </button>
+          </div>
 
-          {!imagePreviewUrl ? (
-            <label className={styles.dropzone} data-tour="workspace-dropzone">
+          {/* Ingestion Mode: Live Website / URL */}
+          {ingestionMode === 'url' && (
+            <div className={styles.urlScannerCard}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 6 }}>
+                <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#FFFFFF', display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <Globe size={16} color="#38bdf8" />
+                  Live Webpage Compliance Scraper
+                </span>
+                <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                  Extracts live campaign copy, headings &amp; metadata
+                </span>
+              </div>
+
+              <div className={styles.urlInputRow}>
+                <div className={styles.urlInputFieldWrapper}>
+                  <Link2 size={16} className={styles.urlInputIcon} />
+                  <input
+                    type="url"
+                    className={styles.urlInput}
+                    placeholder="https://example.com/promotions/summer-sale"
+                    value={targetUrl}
+                    onChange={e => setTargetUrl(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleScrapeUrl();
+                      }
+                    }}
+                    disabled={isUrlFetching}
+                  />
+                </div>
+                <button
+                  type="button"
+                  className={styles.urlFetchBtn}
+                  onClick={() => handleScrapeUrl()}
+                  disabled={isUrlFetching || !targetUrl.trim()}
+                >
+                  {isUrlFetching ? (
+                    <>
+                      <RefreshCw size={14} className="animate-spin" />
+                      <span>Fetching &amp; Scanning...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles size={14} />
+                      <span>Fetch &amp; Scan URL</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {/* Preset Test URLs for Instant Judges / User Testing */}
+              <div className={styles.urlPresetsRow}>
+                <span>Quick Test Sites:</span>
+                <button
+                  type="button"
+                  className={styles.urlPresetChip}
+                  onClick={() => handleScrapeUrl('https://verifibrand-9h26.vercel.app')}
+                  disabled={isUrlFetching}
+                >
+                  🌐 VerifiBrand Production App
+                </button>
+                <button
+                  type="button"
+                  className={styles.urlPresetChip}
+                  onClick={() => handleScrapeUrl('https://example.com')}
+                  disabled={isUrlFetching}
+                >
+                  📄 Standard Test Page (example.com)
+                </button>
+              </div>
+
+              {urlFetchError && (
+                <div style={{ fontSize: '0.78rem', color: '#f43f5e', display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <AlertCircle size={14} />
+                  <span>{urlFetchError}</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Ingestion Mode: File Upload / OCR Dropzone & Preview Card */}
+          {ingestionMode === 'upload' && (
+            <>
               <input
+                ref={fileInputRef}
                 type="file"
                 accept=".png,.jpg,.jpeg,.webp,.avif,.pdf"
                 style={{ display: 'none' }}
                 onChange={handleFileInputChange}
               />
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#38bdf8' }}>
-                <Upload size={18} />
-                <span style={{ fontSize: '0.86rem', fontWeight: 700 }}>
-                  Drop marketing image / PDF or browse
-                </span>
-              </div>
-              <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
-                Supports PNG, JPG, WEBP, AVIF, PDF (Dual PyMuPDF &amp; Tesseract OCR extraction)
-              </span>
-            </label>
-          ) : (
-            <div className={styles.imagePreviewCard}>
-              <div className={styles.imagePreviewContent}>
-                <img
-                  src={imagePreviewUrl}
-                  alt={uploadedFileName || 'Marketing preview'}
-                  className={styles.imagePreviewThumbnail}
-                />
-                <div className={styles.imagePreviewDetails}>
-                  <div className={styles.imagePreviewName}>
-                    <ImageIcon size={14} color="#38bdf8" />
-                    <span>{cleanedFilename || uploadedFileName}</span>
-                  </div>
-                  <div className={styles.imagePreviewMeta}>
-                    <span>Original filename: <strong>{cleanedFilename || uploadedFileName}</strong></span>
-                    {detectedMimeType && <span> &bull; Detected type: <strong>{detectedMimeType}</strong></span>}
-                  </div>
-                  {brandDisclaimer && (
-                    <div className={styles.brandDisclaimerPill} style={{ marginTop: 4 }}>
-                      <Shield size={12} />
-                      <span>{brandDisclaimer}</span>
-                    </div>
-                  )}
-                  <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
-                    <button
-                      type="button"
-                      className={styles.removeImageBtn}
-                      onClick={handleClearImage}
-                      title="Clear uploaded image"
-                    >
-                      <Trash2 size={12} />
-                      Remove image
-                    </button>
-                    <button
-                      type="button"
-                      className={styles.tryAnotherBtn}
-                      style={{ padding: '3px 8px', fontSize: '0.74rem' }}
-                      onClick={() => fileInputRef.current?.click()}
-                    >
-                      <Upload size={12} />
-                      Change image
-                    </button>
-                  </div>
-                </div>
-              </div>
 
-              {/* Multi-step Processing Pipeline State */}
-              <div className={styles.processingPipeline}>
-                <div className={`${styles.pipelineStep} ${pipelineStatus.imageUploaded ? styles.pipelineStepDone : ''}`}>
-                  <CheckCircle size={12} />
-                  <span>Image uploaded</span>
-                </div>
-                <div className={`${styles.pipelineStep} ${pipelineStatus.previewGenerated ? styles.pipelineStepDone : ''}`}>
-                  <CheckCircle size={12} />
-                  <span>Preview generated</span>
-                </div>
-                <div className={`${styles.pipelineStep} ${pipelineStatus.textExtraction === 'completed'
-                    ? styles.pipelineStepDone
-                    : pipelineStatus.textExtraction === 'in_progress'
-                      ? styles.pipelineStepActive
-                      : pipelineStatus.textExtraction === 'failed'
-                        ? styles.pipelineStepError
-                        : ''
-                  }`}>
-                  {pipelineStatus.textExtraction === 'in_progress' ? (
-                    <RefreshCw size={12} className="animate-spin" />
-                  ) : (
-                    <CheckCircle size={12} />
-                  )}
-                  <span>
-                    {pipelineStatus.textExtraction === 'in_progress'
-                      ? 'Extracting text...'
-                      : pipelineStatus.textExtraction === 'failed'
-                        ? 'Extraction failed'
-                        : 'Text extracted'}
+              {!imagePreviewUrl ? (
+                <label className={styles.dropzone} data-tour="workspace-dropzone">
+                  <input
+                    type="file"
+                    accept=".png,.jpg,.jpeg,.webp,.avif,.pdf"
+                    style={{ display: 'none' }}
+                    onChange={handleFileInputChange}
+                  />
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#38bdf8' }}>
+                    <Upload size={18} />
+                    <span style={{ fontSize: '0.86rem', fontWeight: 700 }}>
+                      Drop marketing image / PDF or browse
+                    </span>
+                  </div>
+                  <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                    Supports PNG, JPG, WEBP, AVIF, PDF (Dual PyMuPDF &amp; Tesseract OCR extraction)
                   </span>
+                </label>
+              ) : (
+                <div className={styles.imagePreviewCard}>
+                  <div className={styles.imagePreviewContent}>
+                    <img
+                      src={imagePreviewUrl}
+                      alt={uploadedFileName || 'Marketing preview'}
+                      className={styles.imagePreviewThumbnail}
+                    />
+                    <div className={styles.imagePreviewDetails}>
+                      <div className={styles.imagePreviewName}>
+                        <ImageIcon size={14} color="#38bdf8" />
+                        <span>{cleanedFilename || uploadedFileName}</span>
+                      </div>
+                      <div className={styles.imagePreviewMeta}>
+                        <span>Original filename: <strong>{cleanedFilename || uploadedFileName}</strong></span>
+                        {detectedMimeType && <span> &bull; Detected type: <strong>{detectedMimeType}</strong></span>}
+                      </div>
+                      {brandDisclaimer && (
+                        <div className={styles.brandDisclaimerPill} style={{ marginTop: 4 }}>
+                          <Shield size={12} />
+                          <span>{brandDisclaimer}</span>
+                        </div>
+                      )}
+                      <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
+                        <button
+                          type="button"
+                          className={styles.removeImageBtn}
+                          onClick={handleClearImage}
+                          title="Clear uploaded image"
+                        >
+                          <Trash2 size={12} />
+                          Remove image
+                        </button>
+                        <button
+                          type="button"
+                          className={styles.tryAnotherBtn}
+                          style={{ padding: '3px 8px', fontSize: '0.74rem' }}
+                          onClick={() => fileInputRef.current?.click()}
+                        >
+                          <Upload size={12} />
+                          Change image
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Multi-step Processing Pipeline State */}
+                  <div className={styles.processingPipeline}>
+                    <div className={`${styles.pipelineStep} ${pipelineStatus.imageUploaded ? styles.pipelineStepDone : ''}`}>
+                      <CheckCircle size={12} />
+                      <span>Image uploaded</span>
+                    </div>
+                    <div className={`${styles.pipelineStep} ${pipelineStatus.previewGenerated ? styles.pipelineStepDone : ''}`}>
+                      <CheckCircle size={12} />
+                      <span>Preview generated</span>
+                    </div>
+                    <div className={`${styles.pipelineStep} ${pipelineStatus.textExtraction === 'completed'
+                        ? styles.pipelineStepDone
+                        : pipelineStatus.textExtraction === 'in_progress'
+                          ? styles.pipelineStepActive
+                          : pipelineStatus.textExtraction === 'failed'
+                            ? styles.pipelineStepError
+                            : ''
+                      }`}>
+                      {pipelineStatus.textExtraction === 'in_progress' ? (
+                        <RefreshCw size={12} className="animate-spin" />
+                      ) : (
+                        <CheckCircle size={12} />
+                      )}
+                      <span>
+                        {pipelineStatus.textExtraction === 'in_progress'
+                          ? 'Extracting text...'
+                          : pipelineStatus.textExtraction === 'failed'
+                            ? 'Extraction failed'
+                            : 'Text extracted'}
+                      </span>
+                    </div>
+                    <div className={`${styles.pipelineStep} ${pipelineStatus.visualChecks === 'ready' ? styles.pipelineStepDone : ''}`}>
+                      <CheckCircle size={12} />
+                      <span>
+                        {pipelineStatus.visualChecks === 'ready' ? 'Visual checks ready' : 'Visual checks pending'}
+                      </span>
+                    </div>
+                  </div>
                 </div>
-                <div className={`${styles.pipelineStep} ${pipelineStatus.visualChecks === 'ready' ? styles.pipelineStepDone : ''}`}>
-                  <CheckCircle size={12} />
-                  <span>
-                    {pipelineStatus.visualChecks === 'ready' ? 'Visual checks ready' : 'Visual checks pending'}
-                  </span>
-                </div>
-              </div>
-            </div>
+              )}
+            </>
           )}
 
           {/* OCR Error / Corrupted-Text Protection Warning Banner */}
@@ -1021,6 +1212,50 @@ export default function ScanWorkspacePage() {
               </div>
             )}
 
+            {/* Live Webpage Ingestion Banner */}
+            {scrapedPageData && (
+              <div className={styles.urlExtractedBanner}>
+                <div className={styles.urlExtractedHeader}>
+                  <div className={styles.urlExtractedTitle}>
+                    <Globe size={15} />
+                    <span>Live Webpage: {scrapedPageData.title || scrapedPageData.hostname}</span>
+                  </div>
+                  <button
+                    type="button"
+                    className={styles.urlClearBtn}
+                    onClick={handleClearScrapedUrl}
+                    title="Clear live webpage content"
+                  >
+                    <X size={13} />
+                    <span>Clear URL</span>
+                  </button>
+                </div>
+                <div className={styles.urlExtractedMeta}>
+                  <a
+                    href={scrapedPageData.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ color: '#38bdf8', textDecoration: 'underline', display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                  >
+                    <span>{scrapedPageData.url}</span>
+                    <ExternalLink size={11} />
+                  </a>
+                  <span>&bull;</span>
+                  <span>Extracted <strong>{scrapedPageData.wordCount}</strong> words</span>
+                  <span>&bull;</span>
+                  <span><strong>{scrapedPageData.headings.length}</strong> headings</span>
+                  {scrapedPageData.description && (
+                    <>
+                      <span>&bull;</span>
+                      <span style={{ fontStyle: 'italic', maxWidth: 450, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        &ldquo;{scrapedPageData.description}&rdquo;
+                      </span>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* Blank Graphic Notice (No text detected) */}
             {pipelineStatus.textExtraction === 'completed' && !contentText && !ocrError && (
               <div className={styles.noTextNotice}>
@@ -1091,7 +1326,7 @@ export default function ScanWorkspacePage() {
               type="button"
               className={styles.scanBtn}
               data-tour="workspace-scan-btn"
-              onClick={handleExecuteScan}
+              onClick={() => handleExecuteScan()}
               disabled={scanning || isExtracting}
             >
               {scanning ? (
@@ -1337,7 +1572,7 @@ export default function ScanWorkspacePage() {
                   </span>
                   <button
                     type="button"
-                    onClick={handleExecuteScan}
+                    onClick={() => handleExecuteScan()}
                     style={{
                       background: 'rgba(56, 189, 248, 0.15)',
                       color: '#38bdf8',
