@@ -32,11 +32,7 @@ export const Navbar: React.FC = () => {
               className={styles.brandLogo}
             />
           </Link>
-          {isPublicRoute ? (
-            <span className={styles.trustTag}>
-              AI-assisted findings · Human decisions
-            </span>
-          ) : (
+          {!isPublicRoute && (
             <span style={{
               background: '#FFF5D9',
               color: '#6B4E00',
