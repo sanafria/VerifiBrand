@@ -112,3 +112,19 @@ def test_estimated_logo_box_downgrades_clearspace_fail_to_needs_review():
     assert [f.status for f in hard.findings if f.category == "visual_clearspace"] == ["fail"]
     assert [f.status for f in soft.findings if f.category == "visual_clearspace"] == ["needs_review"]
     assert "visual_clearspace" in soft.checks_run
+
+
+def test_explainer_rules():
+    from brandledger_extraction.visual_explainer import explain_visual
+    assert "not a pass" in explain_visual({"processed": False, "errors": ["could not open file: x"]})
+    assert "No visual check result" in explain_visual(None)
+    clean = explain_visual({"processed": True, "checks_run": ["visual_colour"], "findings": [],
+                            "skipped": ["visual_typography: fonts can only be read from PDFs"], "errors": []})
+    assert "not mean the creative is fully compliant" in clean and "Not checked" in clean
+    review = explain_visual({"processed": True, "checks_run": ["visual_clearspace"], "skipped": [], "errors": [],
+                             "findings": [{"category": "visual_clearspace", "status": "needs_review",
+                                           "matched_text": "Logo close to edge", "explanation": "x"}]})
+    assert "A person must confirm" in review
+    real = run_visual_checks(_pdf(("helv", "cour")), "a.pdf")
+    assert "Problem (typography)" in explain_visual({"processed": real.processed, "checks_run": real.checks_run,
+        "findings": real.findings, "skipped": real.skipped, "errors": real.errors})
