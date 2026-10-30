@@ -170,3 +170,38 @@
   border-radius: 50%;
   background: #166534;
 }
+
+.logoLink {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+  line-height: 0;
+  transition: opacity 0.15s ease;
+  flex-shrink: 0;
+}
+
+.logoLink:hover {
+  opacity: 0.9;
+}
+
+.brandLogo {
+  height: 42px;
+  width: auto;
+  max-width: 180px;
+  object-fit: contain;
+  display: block;
+}
+
+@media (max-width: 768px) {
+  .brandLogo {
+    height: 34px;
+    max-width: 145px;
+  }
+}
+
+@media (max-width: 480px) {
+  .brandLogo {
+    height: 28px;
+    max-width: 120px;
+  }
+}

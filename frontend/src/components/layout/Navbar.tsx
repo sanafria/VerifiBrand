@@ -23,11 +23,14 @@ export const Navbar: React.FC = () => {
     <header className={styles.navbar}>
       <div className={styles.container}>
         <div className={styles.brandGroup}>
-          <Link href="/" className={styles.logo}>
-            <div className={styles.shieldIcon}>
-              <Shield size={18} strokeWidth={2.5} />
-            </div>
-            <span>VerifiBrand</span>
+          <Link href="/" className={styles.logoLink} aria-label="VerifiBrand Home">
+            <img
+              src="/images/verifibrand-logo.png"
+              alt="VerifiBrand"
+              width={165}
+              height={42}
+              className={styles.brandLogo}
+            />
           </Link>
           {isPublicRoute ? (
             <span className={styles.trustTag}>
