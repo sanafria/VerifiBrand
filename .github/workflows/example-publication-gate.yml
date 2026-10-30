@@ -1,0 +1,93 @@
+name: "Verify Content Publication Gate (Example Workflow)"
+
+# ==============================================================================
+# BrandLedger (VerifiBrand) Reusable Action Example Workflow
+#
+# This workflow demonstrates how an external marketing, documentation, or CMS
+# repository can integrate BrandLedger's Publication Gate into its CI/CD pipeline
+# to enforce automated brand compliance before merging or publishing.
+# ==============================================================================
+
+on:
+  pull_request:
+    branches:
+      - main
+      - master
+    paths:
+      - "content/**"
+      - "campaigns/**"
+      - "*.md"
+  push:
+    branches:
+      - main
+    paths:
+      - "content/**"
+      - "campaigns/**"
+      - "*.md"
+  workflow_dispatch:
+    inputs:
+      draft_id:
+        description: "BrandLedger content draft UUID to evaluate"
+        required: false
+        default: ""
+      passport_id:
+        description: "BrandLedger Content Passport UUID to verify"
+        required: false
+        default: ""
+
+jobs:
+  brand-compliance-gate:
+    name: "BrandLedger Compliance Gate"
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository content
+        uses: actions/checkout@v4
+
+      # ------------------------------------------------------------------------
+      # Execute BrandLedger Publication Gate Action
+      # ------------------------------------------------------------------------
+      - name: Evaluate Publication Eligibility
+        id: gate
+        uses: ./.github/actions/publication-gate
+        with:
+          # Base URL of BrandLedger backend service (configured in repository secrets/vars)
+          backend_url: ${{ vars.BRANDLEDGER_BACKEND_URL || 'http://localhost:8000' }}
+
+          # HMAC-SHA256 shared secret configured in BrandLedger backend (CMS_WEBHOOK_SECRET)
+          webhook_secret: ${{ secrets.BRANDLEDGER_WEBHOOK_SECRET }}
+
+          # Target content draft or passport identifiers
+          draft_id: ${{ inputs.draft_id || vars.DEFAULT_DRAFT_ID || '' }}
+          passport_id: ${{ inputs.passport_id || '' }}
+
+          # Optional: Target workspace file to evaluate against approved brand policy snapshot
+          content_file: "README.md"
+
+          # Fail step (exit 1) if compliance blockers or missing reviewer approval are detected
+          fail_on_block: "true"
+
+          # HTTP request timeout in seconds
+          timeout_seconds: "30"
+
+      # ------------------------------------------------------------------------
+      # Consume Action Outputs
+      # ------------------------------------------------------------------------
+      - name: Log Gate Results
+        if: always()
+        run: |
+          echo "========================================================"
+          echo "BrandLedger Gate Decision : ${{ steps.gate.outputs.decision }}"
+          echo "Reason Code               : ${{ steps.gate.outputs.reason }}"
+          echo "Active Blockers           : ${{ steps.gate.outputs.total_blockers }}"
+          echo "Content Passport ID       : ${{ steps.gate.outputs.passport_id }}"
+          echo "Passport Hash Verified    : ${{ steps.gate.outputs.passport_hash_verified }}"
+          echo "Duplicate Event           : ${{ steps.gate.outputs.duplicate }}"
+          echo "========================================================"
+
+      - name: Handle Authorized Publication
+        if: steps.gate.outputs.decision == 'PASS'
+        run: |
+          echo "SUCCESS: Content is fully approved and cryptographically verified."
+          echo "Ready to trigger downstream CMS deployment or public release."
+

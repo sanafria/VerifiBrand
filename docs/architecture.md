@@ -187,6 +187,14 @@ The frontend uses a dual-mode persistence architecture:
 | `POST` | `/api/scans/upload` | `api/uploads.py` | Multipart file upload (image, PDF, TXT), runs OCR/visual extraction, then passes text into `execute_scan`. |
 | `POST` | `/api/reviews` | `api/reviews.py` | Review decision gate. Evaluates header-based role, updates draft status, and generates Content Passport on approval. |
 | `GET` | `/api/passports/{id}`| `api/passports.py` | Retrieve Content Passport certificate and compute SHA-256 canonical hash on-the-fly for tamper detection. |
+| `POST` | `/api/gate/publish` | `api/gate.py` | Authenticated pre-publication gate for CMS webhooks and GitHub Actions. Enforces HMAC-SHA256, reviewer sign-offs, zero active blockers, and cryptographic passport integrity. |
+| `GET` | `/api/gate/{event_id}` | `api/gate.py` | Retrieve previously recorded publication gate decision and evidence by event ID. |
+| `GET` | `/api/merkle/tree` | `api/merkle.py` | Retrieve authoritative Merkle tree root and leaf hashes over all valid Content Passports. |
+| `GET` | `/api/merkle/proof/{id}` | `api/merkle.py` | Retrieve cryptographic inclusion proof for a specific Content Passport. |
+| `POST` | `/api/merkle/verify` | `api/merkle.py` | Independently calculate and mathematically verify a Merkle inclusion proof against an expected root. |
+| `POST` | `/api/tools/scan_creative` | `api/agent_tools.py` | Agent tool executing deterministic compliance scan with verbatim evidence citations. |
+| `GET` | `/api/tools/findings` | `api/agent_tools.py` | Agent tool retrieving persisted findings by scan or draft identifier. |
+| `POST` | `/api/tools/verify_merkle_proof` | `api/agent_tools.py` | Agent tool mathematically verifying Merkle proofs. |
 
 ---
 

@@ -1,0 +1,95 @@
+name: "BrandLedger Publication Gate Check"
+description: "Evaluates marketing content, creative copy, and content drafts against BrandLedger brand policies using the authenticated Publication Gate."
+author: "VerifiBrand Team (Member 6: QA, Integration & Release Lead)"
+
+branding:
+  icon: "shield-check"
+  color: "blue"
+
+inputs:
+  backend_url:
+    description: "Base URL of the BrandLedger FastAPI backend API service (e.g. http://localhost:8000 or https://api.verifibrand.com)"
+    required: false
+    default: "http://localhost:8000"
+  webhook_secret:
+    description: "Shared secret for HMAC-SHA256 signature generation (matches backend CMS_WEBHOOK_SECRET)"
+    required: true
+  event_id:
+    description: "Unique delivery or event identifier for idempotency (auto-generated if omitted)"
+    required: false
+    default: ""
+  draft_id:
+    description: "UUID of an existing content draft in BrandLedger"
+    required: false
+    default: ""
+  passport_id:
+    description: "UUID of an existing Content Passport certificate in BrandLedger"
+    required: false
+    default: ""
+  scan_id:
+    description: "UUID of an associated compliance scan attempt in BrandLedger"
+    required: false
+    default: ""
+  content_text:
+    description: "Raw creative copy or marketing text to verify against approved snapshot"
+    required: false
+    default: ""
+  content_file:
+    description: "Path to a workspace text or Markdown file whose contents will be evaluated as content_text"
+    required: false
+    default: ""
+  fail_on_block:
+    description: "Whether to fail the GitHub Actions step (exit 1) if gate decision is BLOCK ('true' or 'false')"
+    required: false
+    default: "true"
+  timeout_seconds:
+    description: "HTTP connection and read timeout in seconds"
+    required: false
+    default: "30"
+
+outputs:
+  decision:
+    description: "Publication gate decision outcome ('PASS' or 'BLOCK')"
+    value: ${{ steps.gate_runner.outputs.decision }}
+  reason:
+    description: "Machine-readable reason code explaining the gate decision"
+    value: ${{ steps.gate_runner.outputs.reason }}
+  explanation:
+    description: "Human-readable explanation of the gate decision"
+    value: ${{ steps.gate_runner.outputs.explanation }}
+  total_blockers:
+    description: "Count of active blocking violations detected"
+    value: ${{ steps.gate_runner.outputs.total_blockers }}
+  passport_id:
+    description: "UUID of Content Passport certificate evaluated, if any"
+    value: ${{ steps.gate_runner.outputs.passport_id }}
+  passport_hash_verified:
+    description: "Cryptographic SHA-256 hash verification result of the Content Passport"
+    value: ${{ steps.gate_runner.outputs.passport_hash_verified }}
+  findings_summary:
+    description: "JSON array of policy violation findings and evidence citations"
+    value: ${{ steps.gate_runner.outputs.findings_summary }}
+  duplicate:
+    description: "Whether this evaluation was retrieved from the duplicate event store"
+    value: ${{ steps.gate_runner.outputs.duplicate }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Run BrandLedger Publication Gate Evaluation
+      id: gate_runner
+      shell: bash
+      env:
+        INPUT_BACKEND_URL: ${{ inputs.backend_url }}
+        INPUT_WEBHOOK_SECRET: ${{ inputs.webhook_secret }}
+        INPUT_EVENT_ID: ${{ inputs.event_id }}
+        INPUT_DRAFT_ID: ${{ inputs.draft_id }}
+        INPUT_PASSPORT_ID: ${{ inputs.passport_id }}
+        INPUT_SCAN_ID: ${{ inputs.scan_id }}
+        INPUT_CONTENT_TEXT: ${{ inputs.content_text }}
+        INPUT_CONTENT_FILE: ${{ inputs.content_file }}
+        INPUT_FAIL_ON_BLOCK: ${{ inputs.fail_on_block }}
+        INPUT_TIMEOUT_SECONDS: ${{ inputs.timeout_seconds }}
+      run: |
+        python3 "${{ github.action_path }}/runner.py"
+

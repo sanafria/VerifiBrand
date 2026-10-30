@@ -67,6 +67,7 @@ Key required environment variables:
 | **CMP-4** | Deterministic Rules Engine | Member 4 (Zynab) | Terminology, Expired Offers, Numerical limits, Claims, and Evidence Verifier. |
 | **CMP-5** | Extraction & Visual Pipeline | Member 5 (Mahadevi)| PDF layer parsing, OCR fallback, blur/resolution checks, logo matcher. |
 | **CMP-6** | Cryptographic Hashing | Member 3 & 4 | Canonical snapshot assembly and SHA-256 tamper detection. |
+| **CMP-7** | Publication Gate & GitHub Action | Member 6 (Umme Haany) | HMAC-SHA256 authenticated pre-publication gate, duplicate-event idempotency, and reusable GitHub Action CI packaging. |
 
 ---
 
@@ -89,6 +90,8 @@ These scenarios validate that standard, valid workflows execute correctly and re
 | **AT-009** | Image Upload (OCR) | `POST /api/scans/upload` | `201 Created` | Runs Tesseract OCR (`ocr`), finds promo entities, completes scan. |
 | **AT-010** | Review Approval & Passport | `POST /api/reviews` | `201 Created` | Approves draft, creates Content Passport with SHA-256 hash. |
 | **AT-011** | Passport Hash Verification | `GET /api/passports/{id}`| `200 OK` | Loads certificate; computes matching SHA-256 hash (`hash_verified: true`). |
+| **AT-012** | Pre-Publication Gate Webhook (PASS) | `POST /api/gate/publish` | `200 OK` | Signed request with valid passport & approval returns decision `PASS` (`PUBLICATION_AUTHORIZED`). |
+| **AT-013** | Reusable GitHub Action Execution | `.github/actions/publication-gate` | `Exit 0` | Action runner signs payload, receives PASS, writes step outputs, and renders Markdown summary. |
 
 ---
 
@@ -301,6 +304,11 @@ These scenarios test error handling, input validation, security boundaries, and 
 | **AT-021** | Mismatched Scan and Draft | `POST /api/reviews` with mismatched IDs | `400 Bad Request` | Detail indicates scan does not belong to draft. |
 | **AT-022** | Tampered Passport Snapshot | `GET /api/passports/{id}` after DB modification | `200 OK` | `hash_verified: false` (tamper detected). |
 | **AT-023** | Quote Verification Rejection | `filter_and_verify_findings` with fabricated quote | Suppressed / Rejected | Finding omitted ("No receipt, no flag"). |
+| **AT-025** | Missing/Invalid Webhook Signature | `POST /api/gate/publish` without valid signature | `401 Unauthorized` | Detail states `Missing X-BrandLedger-Signature` or `Invalid HMAC-SHA256`. |
+| **AT-026** | Publication Block on Active Findings | `POST /api/gate/publish` with active blockers | `200 OK` | `decision: BLOCK`, `reason: ACTIVE_BLOCKING_FINDINGS` with verbatim receipts. |
+| **AT-027** | Publication Block on Unapproved Draft | `POST /api/gate/publish` on unapproved draft | `200 OK` | `decision: BLOCK`, `reason: DRAFT_NOT_APPROVED`. |
+| **AT-028** | Publication Block on Tampered Passport | `POST /api/gate/publish` with tampered snapshot | `200 OK` | `decision: BLOCK`, `reason: PASSPORT_TAMPERED`. |
+| **AT-029** | GitHub Action Step Failure | `.github/actions/publication-gate` on BLOCK | `Exit 1` | Action fails step when `fail_on_block: true` and logs Markdown violations table. |
 
 ---
 

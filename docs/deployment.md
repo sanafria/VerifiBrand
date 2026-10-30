@@ -271,3 +271,67 @@ To register the VerifiBrand agent on Fetch.ai Agentverse and enable discovery in
 1. **Live External Verification**: Automated CI and local test suites validate the complete workflow against local services without requiring live external Agentverse API keys. Live Agentverse and ASI:One interactions require external network credentials and manual registration.
 2. **Host Tesseract OCR**: When running tests natively on host OS without `tesseract` installed, OCR upload tests in `test_api_uploads.py` are safely skipped via `pytest.mark.skipif(not tesseract_available())`. In Docker and GitHub Actions CI, `tesseract-ocr` is installed and tests run in full.
 3. **Role Enforcement (`X-User-Role`)**: Reviewer role authorization in `POST /api/reviews` simulates separation-of-duties access control via request headers. Production deployments should attach an API gateway or OAuth2/JWT middleware to validate reviewer identity tokens before proxying to the backend.
+
+---
+
+## 10. Reusable GitHub Action for External Content Repositories
+
+BrandLedger provides a production-ready, reusable composite GitHub Action located at `.github/actions/publication-gate`. External marketing teams, CMS pipelines, and documentation repositories can incorporate this action into their CI workflows to gate pull requests and automated deployments against BrandLedger's authoritative publication rules.
+
+### 10.1 Action Contract & Parameters
+
+| Input Parameter | Required | Default | Description |
+|---|---|---|---|
+| `backend_url` | No | `http://localhost:8000` | Base URL of the BrandLedger FastAPI service. |
+| `webhook_secret` | **Yes** | — | Shared secret matching `CMS_WEBHOOK_SECRET` for HMAC-SHA256 signing. |
+| `event_id` | No | Auto-generated | Unique delivery or event identifier for duplicate tracking. |
+| `draft_id` | Conditional | `""` | UUID of the BrandLedger draft being evaluated. |
+| `passport_id` | Conditional | `""` | UUID of the Content Passport certificate (if available). |
+| `scan_id` | No | `""` | UUID of the compliance scan attempt. |
+| `content_text` | No | `""` | Raw text copy to evaluate against the approved policy snapshot. |
+| `content_file` | No | `""` | Workspace file path (e.g. `campaigns/launch.md`) to read and evaluate. |
+| `fail_on_block` | No | `"true"` | When `"true"`, fails the GitHub Actions step (`exit 1`) if the gate returns `BLOCK`. |
+| `timeout_seconds` | No | `"30"` | HTTP connection and read timeout. |
+
+### 10.2 Outputs
+
+| Output Name | Type | Description |
+|---|---|---|
+| `decision` | `string` | Final gate outcome: `PASS` or `BLOCK`. |
+| `reason` | `string` | Machine-readable reason code (e.g. `PUBLICATION_AUTHORIZED`, `ACTIVE_BLOCKING_FINDINGS`, `DRAFT_NOT_APPROVED`). |
+| `explanation` | `string` | Human-readable explanation of the gate decision. |
+| `total_blockers` | `integer` | Count of active blocking violations detected. |
+| `passport_id` | `string` | UUID of Content Passport certificate evaluated, if any. |
+| `passport_hash_verified` | `boolean` | `true` if canonical SHA-256 cryptographic hash verified; `false` if tampered. |
+| `findings_summary` | `json` | Structured JSON array of policy violation findings and verbatim receipts. |
+| `duplicate` | `boolean` | `true` if the event result was served from the idempotent duplicate store. |
+
+### 10.3 Integration Example (`.github/workflows/verify-content.yml`)
+
+```yaml
+name: Verify Brand Compliance
+
+on:
+  pull_request:
+    branches: [main]
+    paths: ['content/**', '*.md']
+
+jobs:
+  brandledger-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Run BrandLedger Publication Gate
+        id: gate
+        uses: ./.github/actions/publication-gate
+        with:
+          backend_url: ${{ vars.BRANDLEDGER_BACKEND_URL }}
+          webhook_secret: ${{ secrets.BRANDLEDGER_WEBHOOK_SECRET }}
+          draft_id: "a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d"
+          content_file: "content/announcement.md"
+          fail_on_block: "true"
+```
+
+

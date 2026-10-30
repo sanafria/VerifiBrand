@@ -89,6 +89,10 @@ jobs:
         run: |
           python -m pytest backend/tests -v --durations=10
 
+      - name: Run Publication Gate GitHub Action Runner Tests
+        run: |
+          python3 .github/actions/publication-gate/test_runner.py -v
+
   # ============================================================================
   # 2. Security & Container Readiness Checks
   # ============================================================================

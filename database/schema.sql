@@ -171,3 +171,21 @@ CREATE TABLE IF NOT EXISTS publication_events (
 
 CREATE INDEX IF NOT EXISTS idx_publication_events_event_id ON publication_events(event_id);
 CREATE INDEX IF NOT EXISTS idx_publication_events_draft_id ON publication_events(draft_id);
+
+-- ==============================================================================
+-- 8. MERKLE ANCHORS — Public Verification Anchor (Phase 3.3A, Member 6)
+-- ==============================================================================
+
+CREATE TABLE IF NOT EXISTS merkle_anchors (
+    anchor_id      UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    root_hash      CHAR(64) NOT NULL,
+    status         TEXT NOT NULL CHECK (status IN ('pending', 'anchored', 'failed')),
+    receipt        TEXT,
+    receipt_source TEXT CHECK (receipt_source IN ('mock', 'real')),
+    failure_reason TEXT,
+    created_at     TIMESTAMPTZ DEFAULT NOW(),
+    updated_at     TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Enforce idempotency: at most one anchor row per Merkle root hash
+CREATE UNIQUE INDEX IF NOT EXISTS uq_merkle_anchor_root ON merkle_anchors(root_hash);
