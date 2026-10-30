@@ -7,7 +7,7 @@ from datetime import datetime
 
 from dotenv import load_dotenv
 load_dotenv()
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
@@ -16,6 +16,7 @@ from backend.app.api.passports import router as passports_router
 from backend.app.api.policies import router as policies_router
 from backend.app.api.reviews import router as reviews_router
 from backend.app.api.scans import router as scans_router
+from backend.app.api.uploads import OcrResponse, extract_ocr_endpoint
 from backend.app.api.uploads import router as uploads_router
 from backend.app.api.merkle import router as merkle_router
 from backend.app.api.agent_tools import router as agent_tools_router
@@ -98,6 +99,13 @@ async def scan_draft_endpoint(payload: ScanDraftRequest):
         raise
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.post("/api/ocr", response_model=OcrResponse)
+@app.post("/ocr", response_model=OcrResponse)
+async def direct_ocr_endpoint(file: UploadFile = File(...)):
+    """Direct OCR endpoint for image copy extraction."""
+    return await extract_ocr_endpoint(file)
 
 
 @app.get("/health")

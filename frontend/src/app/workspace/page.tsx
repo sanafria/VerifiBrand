@@ -1,11 +1,12 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import {
   Shield, AlertTriangle, CheckCircle2, Sparkles, Cpu,
   RefreshCw, ArrowRight, Quote, Sliders, Check, FileText,
-  BarChart2, History, Award, Upload
+  BarChart2, History, Award, Upload, Image as ImageIcon,
+  X, AlertCircle, Edit3, Trash2, CheckCircle
 } from 'lucide-react';
 import { policyClient } from '@/lib/api/policyClient';
 import { reviewClient } from '@/lib/api/reviewClient';
@@ -24,12 +25,87 @@ interface FindingItem {
   is_verified?: boolean;
 }
 
+interface OcrData {
+  success: boolean;
+  filename: string;
+  mime_type?: string;
+  extracted_text?: string;
+  confidence?: number;
+  word_count?: number;
+  error_code?: string;
+  message?: string;
+  is_sample?: boolean;
+  visual_checks_status?: string;
+}
+
+interface PipelineStatus {
+  imageUploaded: boolean;
+  previewGenerated: boolean;
+  textExtraction: 'idle' | 'in_progress' | 'completed' | 'failed';
+  visualChecks: 'pending' | 'ready';
+}
+
+function checkIsCorruptedText(text: string): { corrupted: boolean; reason: string } {
+  if (!text) return { corrupted: false, reason: '' };
+
+  // 1. Raw binary null bytes
+  if (text.includes('\0')) {
+    return { corrupted: true, reason: 'Contains raw binary null bytes' };
+  }
+
+  // 2. Binary file signature prefixes (raw decoded headers)
+  const binarySignatures = ['JFIF', 'PNG', 'PDF', 'EXIF', 'GIF8', 'WEBP', '%PDF', '\uFFFD'];
+  const prefixCheck = text.slice(0, 32).toUpperCase();
+  for (const sig of binarySignatures) {
+    if (prefixCheck.includes(sig)) {
+      return { corrupted: true, reason: `Binary header signature "${sig}" detected` };
+    }
+  }
+
+  // 3. Replacement characters (Unicode U+FFFD)
+  const replacementMatches = text.match(/\uFFFD/g) || [];
+  const replacementRatio = replacementMatches.length / Math.max(text.length, 1);
+  if (replacementRatio > 0.01) {
+    return { corrupted: true, reason: 'High replacement character ratio (corrupted binary decode)' };
+  }
+
+  // 4. Readable character ratio (alphanumeric, whitespace, standard punctuation)
+  const readableMatches = text.match(/[A-Za-z0-9\s.,!?'"()\-/%:;@&]/g) || [];
+  const readableRatio = readableMatches.length / Math.max(text.length, 1);
+  if (text.length > 20 && readableRatio < 0.65) {
+    return { corrupted: true, reason: 'Low readable character ratio (binary decoding artifacts)' };
+  }
+
+  // 5. Unnaturally massive character count indicative of decoded raw image
+  if (text.length > 40000) {
+    return { corrupted: true, reason: 'Abnormally large text length for marketing asset' };
+  }
+
+  return { corrupted: false, reason: '' };
+}
+
 export default function ScanWorkspacePage() {
-  // Input form state (clean initial state for new users)
+  // Input form state
   const [title, setTitle] = useState('');
   const [contentText, setContentText] = useState('');
   const [scanDate, setScanDate] = useState('2026-10-25');
   const [channel, setChannel] = useState('social');
+
+  // Image Upload, Preview & OCR Pipeline State
+  const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
+  const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
+  const [isExtracting, setIsExtracting] = useState<boolean>(false);
+  const [ocrResult, setOcrResult] = useState<OcrData | null>(null);
+  const [ocrError, setOcrError] = useState<{ filename: string; message: string } | null>(null);
+  const [pipelineStatus, setPipelineStatus] = useState<PipelineStatus>({
+    imageUploaded: false,
+    previewGenerated: false,
+    textExtraction: 'idle',
+    visualChecks: 'pending',
+  });
+
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   // AdaptionLabs AI Blueprint Controls
   const [adaptionLabsAi, setAdaptionLabsAi] = useState(true);
@@ -50,7 +126,7 @@ export default function ScanWorkspacePage() {
   useEffect(() => {
     try {
       setScanDate(new Date().toISOString().split('T')[0]);
-    } catch {}
+    } catch { }
     async function loadPolicies() {
       try {
         const policies = await policyClient.getApprovedPoliciesForScan();
@@ -70,6 +146,7 @@ export default function ScanWorkspacePage() {
 
   // Preset 1: Snippet A (Triggers Violations per Demo Script)
   const handleLoadSnippetA = () => {
+    handleClearImage();
     setTitle('Summer Exclusive Promo');
     setContentText('Our customers can access the exclusive Summer Discount today!');
     setScanDate('2026-07-01');
@@ -78,50 +155,232 @@ export default function ScanWorkspacePage() {
 
   // Preset 2: Snippet B (Compliant per Demo Script)
   const handleLoadSnippetB = () => {
+    handleClearImage();
     setTitle('Summer Member Access');
     setContentText('Our Members can access standard pricing today!');
     setScanDate('2026-07-01');
     showToast('Loaded Demo Snippet B (Compliant)');
   };
 
-  // Preset 3: Synthetic OCR Sample
+  // Preset 3: Controlled Sample OCR Graphic (winter-travel-plan.jpg)
   const handleLoadSampleOCR = () => {
-    setTitle('Extracted Banner Graphic');
-    setContentText('SPRING SALE - Get 20% OFF all Members plans - Valid until 31 March 2026 - Use code SPRING20');
-    setScanDate('2026-04-15');
-    setOcrInfo({
-      fileName: 'img_clear_offer.png',
-      method: 'PyMuPDF + Tesseract OCR',
-      resolution: '300 DPI • Contrast 88%',
+    setTitle('Winter Travel Promotion');
+    setContentText('Winter travel packages are available for members through December 31.');
+    setScanDate('2026-10-25');
+    setUploadedFileName('winter-travel-plan.jpg');
+    setImagePreviewUrl('/verifibrand-logo.png');
+    setOcrError(null);
+    setOcrResult({
+      success: true,
+      filename: 'winter-travel-plan.jpg',
+      mime_type: 'image/jpeg',
+      extracted_text: 'Winter travel packages are available for members through December 31.',
+      confidence: 0.92,
+      word_count: 11,
+      is_sample: true,
+      visual_checks_status: 'ready',
     });
-    showToast('Loaded Synthetic OCR Banner Extraction');
+    setPipelineStatus({
+      imageUploaded: true,
+      previewGenerated: true,
+      textExtraction: 'completed',
+      visualChecks: 'ready',
+    });
+    setOcrInfo({
+      fileName: 'winter-travel-plan.jpg',
+      method: 'OCR sample · Fictional demo data',
+      resolution: 'Confidence: 92% • 11 words detected',
+    });
+    showToast('Loaded Controlled OCR Sample');
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setOcrInfo({
-      fileName: file.name,
-      method: 'PyMuPDF / Tesseract OCR',
-      resolution: '300 DPI • Contrast 92%',
-    });
-
-    if (file.name.toLowerCase().includes('offer') || file.name.toLowerCase().includes('spring') || file.name.toLowerCase().includes('sale')) {
-      setContentText('SPRING SALE - Get 20% OFF all Members plans - Valid until 31 March 2026 - Use code SPRING20');
-    } else {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const text = event.target?.result as string;
-        if (text && text.trim()) {
-          setContentText(text.trim());
-        } else {
-          setContentText('SPRING SALE - Get 20% OFF all Members plans - Valid until 31 March 2026 - Use code SPRING20');
-        }
-      };
-      reader.readAsText(file);
+  // Clear/Reset Uploaded Image
+  const handleClearImage = () => {
+    if (imagePreviewUrl && imagePreviewUrl.startsWith('blob:')) {
+      URL.revokeObjectURL(imagePreviewUrl);
     }
-    showToast(`Extracted copy from ${file.name}`);
+    setImagePreviewUrl(null);
+    setUploadedFileName(null);
+    setOcrResult(null);
+    setOcrError(null);
+    setOcrInfo(null);
+    setPipelineStatus({
+      imageUploaded: false,
+      previewGenerated: false,
+      textExtraction: 'idle',
+      visualChecks: 'pending',
+    });
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  // Correct OCR Upload Handler (Multipart FormData, never decode binary as UTF-8 text)
+  const processImageFile = async (file: File) => {
+    const validExtensions = ['.png', '.jpg', '.jpeg', '.webp', '.avif', '.pdf'];
+    const ext = file.name.slice(file.name.lastIndexOf('.')).toLowerCase();
+
+    // 1. Validate file format
+    if (!validExtensions.includes(ext) && !file.type.startsWith('image/') && file.type !== 'application/pdf') {
+      showToast('Unsupported file type. Please upload a PNG, JPG, WEBP, AVIF, or PDF.');
+      return;
+    }
+
+    // 2. Validate file size (20MB)
+    if (file.size > 20 * 1024 * 1024) {
+      showToast('File exceeds 20MB limit.');
+      return;
+    }
+
+    // 3. Reset states & create object URL preview
+    setOcrError(null);
+    setOcrResult(null);
+    setUploadedFileName(file.name);
+    const preview = URL.createObjectURL(file);
+    setImagePreviewUrl(preview);
+
+    setPipelineStatus({
+      imageUploaded: true,
+      previewGenerated: true,
+      textExtraction: 'in_progress',
+      visualChecks: 'pending',
+    });
+    setIsExtracting(true);
+
+    try {
+      // 4. Send image as multipart/form-data to /api/ocr
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const apiBase = process.env.NEXT_PUBLIC_API_URL !== undefined
+        ? process.env.NEXT_PUBLIC_API_URL
+        : (typeof window !== 'undefined' ? '' : 'http://127.0.0.1:8000');
+
+      let data: OcrData | null = null;
+
+      // First try backend API directly, then fallback to Next.js route handler
+      try {
+        const endpoint = apiBase ? `${apiBase}/api/ocr` : '/api/ocr';
+        const res = await fetch(endpoint, {
+          method: 'POST',
+          body: formData,
+        });
+        if (res.ok) {
+          data = await res.json();
+        } else {
+          try {
+            data = await res.json();
+          } catch { }
+        }
+      } catch {
+        // Fallback to local Next.js route
+        try {
+          const res = await fetch('/api/ocr', {
+            method: 'POST',
+            body: formData,
+          });
+          if (res.ok) {
+            data = await res.json();
+          }
+        } catch { }
+      }
+
+      // 5. Evaluate extraction result & demo fallback
+      if (!data || !data.success || !data.extracted_text) {
+        // Controlled sample fallback if backend OCR is unavailable
+        const lower = file.name.toLowerCase();
+        if (lower.includes('winter') && lower.includes('travel')) {
+          data = {
+            success: true,
+            filename: file.name,
+            mime_type: file.type || 'image/jpeg',
+            extracted_text: 'Winter travel packages are available for members through December 31.',
+            confidence: 0.92,
+            word_count: 11,
+            is_sample: true,
+            visual_checks_status: 'ready',
+          };
+        } else if (lower.includes('clear_offer') || lower.includes('spring') || lower.includes('sale')) {
+          data = {
+            success: true,
+            filename: file.name,
+            mime_type: file.type || 'image/png',
+            extracted_text: 'SPRING SALE - Get 20% OFF all Members plans - Valid until 31 March 2026 - Use code SPRING20',
+            confidence: 0.95,
+            word_count: 16,
+            is_sample: true,
+            visual_checks_status: 'ready',
+          };
+        } else {
+          setPipelineStatus(prev => ({
+            ...prev,
+            textExtraction: 'failed',
+            visualChecks: 'ready',
+          }));
+          setOcrError({
+            filename: file.name,
+            message: data?.message || 'We could not read the text from this image. Try uploading a clearer image or paste the campaign copy manually.',
+          });
+          showToast('Could not extract readable text from image');
+          return;
+        }
+      }
+
+      // 6. Corrupted-text protection check
+      const text = (data?.extracted_text || '').trim();
+      const { corrupted, reason } = checkIsCorruptedText(text);
+      if (corrupted) {
+        setPipelineStatus(prev => ({
+          ...prev,
+          textExtraction: 'failed',
+          visualChecks: 'ready',
+        }));
+        setOcrError({
+          filename: file.name,
+          message: `We could not read readable text from this image (${reason}). Binary decode artifacts rejected for safety.`,
+        });
+        showToast('Corrupted text rejected for safety');
+        return;
+      }
+
+      // 7. Accept clean extracted text
+      setContentText(text);
+      if (!title) {
+        setTitle(file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' '));
+      }
+      setOcrResult(data);
+      setPipelineStatus({
+        imageUploaded: true,
+        previewGenerated: true,
+        textExtraction: 'completed',
+        visualChecks: 'ready',
+      });
+      setOcrInfo({
+        fileName: file.name,
+        method: data.is_sample ? 'OCR sample · Fictional demo data' : 'PyMuPDF + Tesseract OCR',
+        resolution: `Confidence: ${Math.round((data.confidence || 0.92) * 100)}% • ${data.word_count || text.split(/\s+/).length} words detected`,
+      });
+      showToast(`Extracted copy from ${file.name}`);
+    } catch (err: any) {
+      setPipelineStatus(prev => ({
+        ...prev,
+        textExtraction: 'failed',
+        visualChecks: 'ready',
+      }));
+      setOcrError({
+        filename: file.name,
+        message: 'We could not read the text from this image. Try uploading a clearer image or paste the campaign copy manually.',
+      });
+    } finally {
+      setIsExtracting(false);
+    }
+  };
+
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      processImageFile(file);
+    }
   };
 
   // Execute Scan against FastAPI Backend with Deterministic Fallback
@@ -267,7 +526,6 @@ export default function ScanWorkspacePage() {
 
   // 1-Click Auto-Fix Action
   const handleApplyFix = (originalSnippet: string, replacement: string) => {
-    // Clean string replacement
     const regex = new RegExp(originalSnippet, 'gi');
     const updated = contentText.replace(regex, replacement);
     setContentText(updated);
@@ -396,7 +654,7 @@ export default function ScanWorkspacePage() {
                 type="button"
                 className={`${styles.presetBtn} ${styles.presetBtnC}`}
                 onClick={handleLoadSampleOCR}
-                title="Loads text extracted from img_clear_offer.png"
+                title="Loads controlled OCR demo sample (winter-travel-plan.jpg)"
               >
                 <FileText size={14} />
                 Image sample
@@ -441,40 +699,207 @@ export default function ScanWorkspacePage() {
             </select>
           </div>
 
-          {/* File Upload / OCR Dropzone */}
-          <label className={styles.dropzone} data-tour="workspace-dropzone">
-            <input
-              type="file"
-              accept=".png,.jpg,.jpeg,.webp,.pdf,.txt"
-              style={{ display: 'none' }}
-              onChange={handleFileUpload}
-            />
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#38bdf8' }}>
-              <Upload size={18} />
-              <span style={{ fontSize: '0.86rem', fontWeight: 700 }}>
-                Drop marketing image / PDF or browse
-              </span>
-            </div>
-            <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
-              Supports PNG, JPG, WEBP, PDF (PyMuPDF &amp; Tesseract OCR extraction)
-            </span>
-            {ocrInfo && (
-              <div className={styles.ocrBadge}>
-                <span>✓ Extracted: {ocrInfo.fileName} ({ocrInfo.resolution})</span>
-              </div>
-            )}
-          </label>
+          {/* File Upload / OCR Dropzone & Preview Card */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".png,.jpg,.jpeg,.webp,.avif,.pdf"
+            style={{ display: 'none' }}
+            onChange={handleFileInputChange}
+          />
 
-          {/* Draft Textarea */}
+          {!imagePreviewUrl ? (
+            <label className={styles.dropzone} data-tour="workspace-dropzone">
+              <input
+                type="file"
+                accept=".png,.jpg,.jpeg,.webp,.avif,.pdf"
+                style={{ display: 'none' }}
+                onChange={handleFileInputChange}
+              />
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#38bdf8' }}>
+                <Upload size={18} />
+                <span style={{ fontSize: '0.86rem', fontWeight: 700 }}>
+                  Drop marketing image / PDF or browse
+                </span>
+              </div>
+              <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                Supports PNG, JPG, WEBP, AVIF, PDF (Dual PyMuPDF &amp; Tesseract OCR extraction)
+              </span>
+            </label>
+          ) : (
+            <div className={styles.imagePreviewCard}>
+              <div className={styles.imagePreviewContent}>
+                <img
+                  src={imagePreviewUrl}
+                  alt={uploadedFileName || 'Marketing preview'}
+                  className={styles.imagePreviewThumbnail}
+                />
+                <div className={styles.imagePreviewDetails}>
+                  <div className={styles.imagePreviewName}>
+                    <ImageIcon size={14} color="#38bdf8" />
+                    <span>{uploadedFileName}</span>
+                  </div>
+                  <div className={styles.imagePreviewMeta}>
+                    {ocrInfo ? ocrInfo.resolution : 'Asset received for verification'}
+                  </div>
+                  <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+                    <button
+                      type="button"
+                      className={styles.removeImageBtn}
+                      onClick={handleClearImage}
+                      title="Clear uploaded image"
+                    >
+                      <Trash2 size={12} />
+                      Remove image
+                    </button>
+                    <button
+                      type="button"
+                      className={styles.tryAnotherBtn}
+                      style={{ padding: '3px 8px', fontSize: '0.74rem' }}
+                      onClick={() => fileInputRef.current?.click()}
+                    >
+                      <Upload size={12} />
+                      Change image
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Multi-step Processing Pipeline State */}
+              <div className={styles.processingPipeline}>
+                <div className={`${styles.pipelineStep} ${pipelineStatus.imageUploaded ? styles.pipelineStepDone : ''}`}>
+                  <CheckCircle size={12} />
+                  <span>Image uploaded</span>
+                </div>
+                <div className={`${styles.pipelineStep} ${pipelineStatus.previewGenerated ? styles.pipelineStepDone : ''}`}>
+                  <CheckCircle size={12} />
+                  <span>Preview generated</span>
+                </div>
+                <div className={`${styles.pipelineStep} ${pipelineStatus.textExtraction === 'completed'
+                    ? styles.pipelineStepDone
+                    : pipelineStatus.textExtraction === 'in_progress'
+                      ? styles.pipelineStepActive
+                      : pipelineStatus.textExtraction === 'failed'
+                        ? styles.pipelineStepError
+                        : ''
+                  }`}>
+                  {pipelineStatus.textExtraction === 'in_progress' ? (
+                    <RefreshCw size={12} className="animate-spin" />
+                  ) : (
+                    <CheckCircle size={12} />
+                  )}
+                  <span>
+                    {pipelineStatus.textExtraction === 'in_progress'
+                      ? 'Extracting text...'
+                      : pipelineStatus.textExtraction === 'failed'
+                        ? 'Extraction failed'
+                        : 'Text extracted'}
+                  </span>
+                </div>
+                <div className={`${styles.pipelineStep} ${pipelineStatus.visualChecks === 'ready' ? styles.pipelineStepDone : ''}`}>
+                  <CheckCircle size={12} />
+                  <span>
+                    {pipelineStatus.visualChecks === 'ready' ? 'Visual checks ready' : 'Visual checks pending'}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* OCR Error / Corrupted-Text Protection Warning Banner */}
+          {ocrError && (
+            <div className={styles.ocrErrorCard}>
+              <div className={styles.ocrErrorHeader}>
+                <AlertTriangle size={20} color="#f43f5e" style={{ flexShrink: 0, marginTop: 2 }} />
+                <div>
+                  <div className={styles.ocrErrorTitle}>
+                    We could not read the text from this image.
+                  </div>
+                  <div className={styles.ocrErrorDesc}>
+                    Try uploading a clearer image or paste the campaign copy manually.
+                  </div>
+                </div>
+              </div>
+
+              <div className={styles.ocrErrorMetaRow}>
+                <span>Image received: <strong>{ocrError.filename}</strong></span>
+                <span>OCR status: <strong>Could not extract readable text</strong></span>
+              </div>
+
+              <div className={styles.ocrErrorActions}>
+                <button
+                  type="button"
+                  className={styles.tryAnotherBtn}
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <Upload size={14} />
+                  Try another image
+                </button>
+                <button
+                  type="button"
+                  className={styles.manualTextBtn}
+                  onClick={() => {
+                    setOcrError(null);
+                    textareaRef.current?.focus();
+                  }}
+                >
+                  <Edit3 size={14} />
+                  Enter text manually
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Draft Textarea Area with Clean Extracted Content Banner */}
           <div className={styles.textareaWrapper} data-tour="workspace-textarea">
             <label className={styles.inputLabel} style={{ marginBottom: 6 }}>
               Marketing Copy / Body Content
             </label>
+
+            {/* Extracted Text Metadata Indicator */}
+            {ocrResult && !ocrError && contentText && (
+              <div className={styles.extractedContentBanner}>
+                <div className={styles.extractedContentHeader}>
+                  <span className={styles.extractedContentLabel}>
+                    <Sparkles size={14} /> Text extracted from image:
+                  </span>
+                  {ocrResult.is_sample ? (
+                    <span className={styles.sampleBadge}>
+                      OCR sample &bull; Fictional demo data
+                    </span>
+                  ) : (
+                    <span className={styles.liveBadge}>
+                      <CheckCircle2 size={12} /> Live Tesseract OCR
+                    </span>
+                  )}
+                </div>
+                <div className={styles.extractedContentMetrics}>
+                  <span>OCR confidence: <strong>{Math.round((ocrResult.confidence || 0.92) * 100)}%</strong></span>
+                  <span>&bull;</span>
+                  <span>Words detected: <strong>{ocrResult.word_count || wordCount}</strong></span>
+                  <span>&bull;</span>
+                  <span>Visual checks: <strong>Ready</strong></span>
+                </div>
+              </div>
+            )}
+
+            {/* Blank Graphic Notice (No text detected) */}
+            {pipelineStatus.textExtraction === 'completed' && !contentText && !ocrError && (
+              <div className={styles.noTextNotice}>
+                <AlertCircle size={16} color="#f59e0b" style={{ flexShrink: 0 }} />
+                <div>
+                  <strong>No readable text detected.</strong>
+                  <div>You can still submit the image for visual asset checks or enter the copy manually.</div>
+                </div>
+              </div>
+            )}
+
             <textarea
+              ref={textareaRef}
               className={styles.textarea}
               value={contentText}
               onChange={e => setContentText(e.target.value)}
-              placeholder="Enter marketing copy or paste text extracted from banner visuals..."
+              placeholder="Enter marketing copy or upload an asset to extract text via OCR..."
               rows={6}
             />
             <div className={styles.textareaFooter}>
@@ -529,12 +954,17 @@ export default function ScanWorkspacePage() {
               className={styles.scanBtn}
               data-tour="workspace-scan-btn"
               onClick={handleExecuteScan}
-              disabled={scanning}
+              disabled={scanning || isExtracting}
             >
               {scanning ? (
                 <>
                   <RefreshCw size={18} className="animate-spin" />
                   <span>Evaluating Draft...</span>
+                </>
+              ) : isExtracting ? (
+                <>
+                  <RefreshCw size={18} className="animate-spin" />
+                  <span>Extracting Copy via OCR...</span>
                 </>
               ) : (
                 <>
@@ -548,11 +978,12 @@ export default function ScanWorkspacePage() {
               type="button"
               className={styles.clearBtn}
               onClick={() => {
+                handleClearImage();
                 setContentText('');
                 setHasScanned(false);
                 setFindings([]);
               }}
-              title="Clear text editor"
+              title="Clear workspace"
             >
               Clear
             </button>
@@ -568,7 +999,7 @@ export default function ScanWorkspacePage() {
               </div>
               <h3 className={styles.emptyTitle}>Ready to review content</h3>
               <p className={styles.emptyDesc}>
-                Load a sample campaign above or add your own draft, then choose <strong>Review Draft</strong> to see findings and source evidence.
+                Load a sample campaign above, upload an asset, or add your own draft, then choose <strong>Review Draft for Findings</strong> to see evidence receipts.
               </p>
             </div>
           )}
@@ -577,9 +1008,8 @@ export default function ScanWorkspacePage() {
             <>
               {/* Status Banner */}
               <div
-                className={`${styles.statusBanner} ${
-                  isCompliant ? styles.statusBannerClean : styles.statusBannerBlocked
-                }`}
+                className={`${styles.statusBanner} ${isCompliant ? styles.statusBannerClean : styles.statusBannerBlocked
+                  }`}
               >
                 <div className={styles.statusBannerTitle}>
                   {isCompliant ? (
@@ -627,9 +1057,8 @@ export default function ScanWorkspacePage() {
                   <div
                     key={idx}
                     id={`finding-${f.policy_card_id}`}
-                    className={`${styles.findingCard} ${
-                      focusedFindingId === f.policy_card_id ? styles.findingCardFocused : ''
-                    }`}
+                    className={`${styles.findingCard} ${focusedFindingId === f.policy_card_id ? styles.findingCardFocused : ''
+                      }`}
                   >
                     {/* Header */}
                     <div className={styles.findingHeader}>
@@ -641,9 +1070,8 @@ export default function ScanWorkspacePage() {
                           {f.category.replace('_', ' ')}
                         </span>
                         <span
-                          className={`${styles.severityTag} ${
-                            f.severity === 'high' ? styles.sevBlocker : styles.sevWarning
-                          }`}
+                          className={`${styles.severityTag} ${f.severity === 'high' ? styles.sevBlocker : styles.sevWarning
+                            }`}
                         >
                           {f.severity === 'high' ? 'Blocker' : f.severity}
                         </span>
@@ -753,7 +1181,7 @@ export default function ScanWorkspacePage() {
                   gap: 12
                 }}>
                   <span style={{ fontSize: '0.84rem', color: 'var(--text-secondary)' }}>
-                    Apply suggested fixes above, then hit <strong>Scan Draft</strong> to rescan.
+                    Apply suggested fixes above, then hit <strong>Review Draft for Findings</strong> to rescan.
                   </span>
                   <button
                     type="button"

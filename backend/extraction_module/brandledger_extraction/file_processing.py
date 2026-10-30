@@ -37,6 +37,8 @@ def _sniff(head: bytes) -> str | None:
         return "image/bmp"
     if head[:4] in (b"II*\x00", b"MM\x00*"):
         return "image/tiff"
+    if len(head) >= 12 and head[4:8] == b"ftyp" and (b"avif" in head[8:16] or b"avis" in head[8:16]):
+        return "image/avif"
     return None
 
 

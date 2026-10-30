@@ -1,4 +1,4 @@
-"""Tests for POST /api/scans/upload (Mahadevi).
+"""Tests for POST /api/scans/upload & POST /api/scans/ocr (Mahadevi).
 
 Uses the REAL extraction module on the sample dataset, but replaces Zoya's
 ``execute_scan`` with a fake so no PostgreSQL database is required.
@@ -40,6 +40,12 @@ def _post(client, rel_path, content_type):
     path = DATA / rel_path
     with open(path, "rb") as fh:
         return client.post("/api/scans/upload", files={"file": (path.name, fh, content_type)})
+
+
+def _post_ocr(client, rel_path, content_type):
+    path = DATA / rel_path
+    with open(path, "rb") as fh:
+        return client.post("/api/scans/ocr", files={"file": (path.name, fh, content_type)})
 
 
 @pytest.mark.skipif(not tesseract_available(), reason="Tesseract OCR binary not installed on host system")
@@ -126,3 +132,43 @@ def test_no_text_422_still_carries_visual_results(client_and_calls):
     assert detail["visual"] is not None
     assert VISUAL_KEYS <= set(detail["visual"])
     assert calls == []          # still never scanned
+
+
+def test_corrupted_text_detector():
+    """Verify that binary decoding artifacts are rejected."""
+    # Binary header starting with JFIF
+    is_corrupt, msg = uploads.is_corrupted_ocr_text("\ufffd\ufffd\ufffd\ufffdJFIF\x00\x01\x01\x00\x00\x01\x00\x01\x00\x00")
+    assert is_corrupt is True
+
+    # Replacement chars
+    is_corrupt, msg = uploads.is_corrupted_ocr_text("Valid text \ufffd\ufffd\ufffd\ufffd\ufffd\ufffd\ufffd\ufffd")
+    assert is_corrupt is True
+
+    # Null bytes
+    is_corrupt, msg = uploads.is_corrupted_ocr_text("Clean text\x00garbage")
+    assert is_corrupt is True
+
+    # Real human copy is valid
+    is_corrupt, msg = uploads.is_corrupted_ocr_text("Winter travel packages are available for members through December 31.")
+    assert is_corrupt is False
+
+
+@pytest.mark.skipif(not tesseract_available(), reason="Tesseract OCR binary not installed on host system")
+def test_ocr_endpoint_success(client_and_calls):
+    client, _ = client_and_calls
+    r = _post_ocr(client, "images/img_clear_offer.png", "image/png")
+    assert r.status_code == 200
+    data = r.json()
+    assert data["success"] is True
+    assert "SPRING SALE" in data["extracted_text"]
+    assert data["word_count"] > 0
+    assert data["confidence"] > 0.5
+
+
+def test_ocr_endpoint_rejects_corrupt(client_and_calls):
+    client, _ = client_and_calls
+    r = _post_ocr(client, "edge_cases/corrupt.png", "image/png")
+    assert r.status_code == 200
+    data = r.json()
+    assert data["success"] is False
+    assert data["error_code"] == "OCR_EXTRACTION_FAILED"
