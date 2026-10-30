@@ -8,11 +8,12 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "node --experimental-strip-types --test src/__tests__/policy.test.ts"
+    "test": "node --experimental-strip-types --test src/__tests__/policy.test.ts src/__tests__/image_workflow.test.ts"
   },
   "dependencies": {
     "lucide-react": "^1.61.0",
     "next": "16.4.3",
+    "ogl": "^1.0.11",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "tesseract.js": "^7.0.0"

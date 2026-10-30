@@ -6,7 +6,7 @@ import {
   Shield, AlertTriangle, CheckCircle2, Sparkles, Cpu,
   RefreshCw, ArrowRight, Quote, Sliders, Check, FileText,
   BarChart2, History, Award, Upload, Image as ImageIcon,
-  X, AlertCircle, Edit3, Trash2, CheckCircle
+  X, AlertCircle, Edit3, Trash2, CheckCircle, Eye
 } from 'lucide-react';
 import { policyClient } from '@/lib/api/policyClient';
 import { reviewClient } from '@/lib/api/reviewClient';
@@ -48,13 +48,18 @@ interface PipelineStatus {
 function checkIsCorruptedText(text: string): { corrupted: boolean; reason: string } {
   if (!text) return { corrupted: false, reason: '' };
 
-  // 1. Raw binary null bytes
+  // 1. Any replacement character (Unicode U+FFFD) is an immediate decode corruption flag
+  if (text.includes('\uFFFD')) {
+    return { corrupted: true, reason: 'Contains replacement characters (\uFFFD)' };
+  }
+
+  // 2. Raw binary null bytes
   if (text.includes('\0')) {
     return { corrupted: true, reason: 'Contains raw binary null bytes' };
   }
 
-  // 2. Binary file signature prefixes (raw decoded headers)
-  const binarySignatures = ['JFIF', 'PNG', 'PDF', 'EXIF', 'GIF8', 'WEBP', '%PDF', '\uFFFD'];
+  // 3. Binary file signature prefixes (raw decoded headers)
+  const binarySignatures = ['JFIF', 'PNG', 'PDF', 'EXIF', 'GIF8', 'WEBP', '%PDF'];
   const prefixCheck = text.slice(0, 32).toUpperCase();
   for (const sig of binarySignatures) {
     if (prefixCheck.includes(sig)) {
@@ -62,26 +67,71 @@ function checkIsCorruptedText(text: string): { corrupted: boolean; reason: strin
     }
   }
 
-  // 3. Replacement characters (Unicode U+FFFD)
-  const replacementMatches = text.match(/\uFFFD/g) || [];
-  const replacementRatio = replacementMatches.length / Math.max(text.length, 1);
-  if (replacementRatio > 0.01) {
-    return { corrupted: true, reason: 'High replacement character ratio (corrupted binary decode)' };
-  }
-
   // 4. Readable character ratio (alphanumeric, whitespace, standard punctuation)
   const readableMatches = text.match(/[A-Za-z0-9\s.,!?'"()\-/%:;@&]/g) || [];
   const readableRatio = readableMatches.length / Math.max(text.length, 1);
-  if (text.length > 20 && readableRatio < 0.65) {
+  if (text.length > 20 && readableRatio < 0.70) {
     return { corrupted: true, reason: 'Low readable character ratio (binary decoding artifacts)' };
   }
 
-  // 5. Unnaturally massive character count indicative of decoded raw image
+  // 5. Malformed OCR tokens (e.g. "WZNO = " or repeated replacement symbols)
+  if (/WZNO\s*=\s*/i.test(text) || /\?{3,}/.test(text)) {
+    return { corrupted: true, reason: 'Corrupted OCR token artifacts detected' };
+  }
+
+  // 6. Unnaturally massive character count indicative of decoded raw image
   if (text.length > 40000) {
     return { corrupted: true, reason: 'Abnormally large text length for marketing asset' };
   }
 
   return { corrupted: false, reason: '' };
+}
+
+/**
+ * Validates file signature (magic bytes) rather than trusting filename extension.
+ */
+async function detectFileSignature(file: File): Promise<{ mimeType: string; suggestedExt: string }> {
+  try {
+    const slice = file.slice(0, 32);
+    const buffer = new Uint8Array(await slice.arrayBuffer());
+    if (buffer.length >= 3 && buffer[0] === 0xFF && buffer[1] === 0xD8 && buffer[2] === 0xFF) {
+      return { mimeType: 'image/jpeg', suggestedExt: '.jpg' };
+    }
+    if (buffer.length >= 8 && buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4E && buffer[3] === 0x47) {
+      return { mimeType: 'image/png', suggestedExt: '.png' };
+    }
+    if (buffer.length >= 4 && buffer[0] === 0x47 && buffer[1] === 0x49 && buffer[2] === 0x46 && buffer[3] === 0x38) {
+      return { mimeType: 'image/gif', suggestedExt: '.gif' };
+    }
+    if (
+      buffer.length >= 12 &&
+      buffer[0] === 0x52 && buffer[1] === 0x49 && buffer[2] === 0x46 && buffer[3] === 0x46 &&
+      buffer[8] === 0x57 && buffer[9] === 0x45 && buffer[10] === 0x42 && buffer[11] === 0x50
+    ) {
+      return { mimeType: 'image/webp', suggestedExt: '.webp' };
+    }
+    if (buffer.length >= 12 && buffer[4] === 0x66 && buffer[5] === 0x74 && buffer[6] === 0x79 && buffer[7] === 0x70) {
+      const brand = String.fromCharCode(buffer[8], buffer[9], buffer[10], buffer[11]);
+      if (['avif', 'avis', 'mif1'].includes(brand)) {
+        return { mimeType: 'image/avif', suggestedExt: '.avif' };
+      }
+    }
+    if (buffer.length >= 4 && buffer[0] === 0x25 && buffer[1] === 0x50 && buffer[2] === 0x44 && buffer[3] === 0x46) {
+      return { mimeType: 'application/pdf', suggestedExt: '.pdf' };
+    }
+  } catch {}
+  return { mimeType: file.type || 'image/jpeg', suggestedExt: '' };
+}
+
+function cleanDoubleExtension(filename: string, detectedMime: string): string {
+  const lower = filename.toLowerCase();
+  if (detectedMime === 'image/jpeg' && (lower.endsWith('.jpg.avif') || lower.endsWith('.jpeg.avif'))) {
+    return filename.slice(0, -5);
+  }
+  if (detectedMime === 'image/png' && lower.endsWith('.png.avif')) {
+    return filename.slice(0, -5);
+  }
+  return filename;
 }
 
 
@@ -96,9 +146,15 @@ export default function ScanWorkspacePage() {
   // Image Upload, Preview & OCR Pipeline State
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
   const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
+  const [cleanedFilename, setCleanedFilename] = useState<string>('');
+  const [detectedMimeType, setDetectedMimeType] = useState<string>('image/jpeg');
+  const [brandDisclaimer, setBrandDisclaimer] = useState<string | null>(null);
   const [isExtracting, setIsExtracting] = useState<boolean>(false);
   const [ocrResult, setOcrResult] = useState<OcrData | null>(null);
   const [ocrError, setOcrError] = useState<{ filename: string; message: string } | null>(null);
+  const [isVisualOnlyMode, setIsVisualOnlyMode] = useState<boolean>(false);
+  const [isManualInputRequired, setIsManualInputRequired] = useState<boolean>(false);
+  const [textChecksStatus, setTextChecksStatus] = useState<'completed' | 'not_run' | 'checked_no_findings' | 'findings_flagged'>('not_run');
   const [pipelineStatus, setPipelineStatus] = useState<PipelineStatus>({
     imageUploaded: false,
     previewGenerated: false,
@@ -203,9 +259,15 @@ export default function ScanWorkspacePage() {
     }
     setImagePreviewUrl(null);
     setUploadedFileName(null);
+    setCleanedFilename('');
+    setDetectedMimeType('image/jpeg');
+    setBrandDisclaimer(null);
     setOcrResult(null);
     setOcrError(null);
     setOcrInfo(null);
+    setIsVisualOnlyMode(false);
+    setIsManualInputRequired(false);
+    setTextChecksStatus('not_run');
     setPipelineStatus({
       imageUploaded: false,
       previewGenerated: false,
@@ -217,7 +279,7 @@ export default function ScanWorkspacePage() {
     }
   };
 
-  // Correct OCR Upload Handler (Multipart FormData, never decode binary as UTF-8 text)
+  // Correct OCR Upload Handler (Validates Magic Bytes & Blocks Corrupted Decodes)
   const processImageFile = async (file: File) => {
     const validExtensions = ['.png', '.jpg', '.jpeg', '.webp', '.avif', '.pdf'];
     const ext = file.name.slice(file.name.lastIndexOf('.')).toLowerCase();
@@ -234,9 +296,23 @@ export default function ScanWorkspacePage() {
       return;
     }
 
-    // 3. Reset states & create object URL preview
+    // 3. Inspect magic bytes signature & normalize filename
+    const { mimeType: detectedMime } = await detectFileSignature(file);
+    const finalMime = detectedMime !== 'application/octet-stream' ? detectedMime : (file.type || 'image/jpeg');
+    const cleanedName = cleanDoubleExtension(file.name, finalMime);
+    setDetectedMimeType(finalMime);
+    setCleanedFilename(cleanedName);
+
+    const hasCommercialRef = file.name.toLowerCase().includes('samsung') || file.name.toLowerCase().includes('galaxy');
+    const brandNote = hasCommercialRef ? 'Sample public-reference asset · Not affiliated with Samsung' : null;
+    setBrandDisclaimer(brandNote);
+
+    // 4. Reset states & create object URL preview
     setOcrError(null);
     setOcrResult(null);
+    setIsVisualOnlyMode(false);
+    setIsManualInputRequired(false);
+    setTextChecksStatus('not_run');
     setUploadedFileName(file.name);
     const preview = URL.createObjectURL(file);
     setImagePreviewUrl(preview);
@@ -250,7 +326,7 @@ export default function ScanWorkspacePage() {
     setIsExtracting(true);
 
     try {
-      // 4. Send image as multipart/form-data with ultra-fast timeout (never hang the user)
+      // 5. Send image as multipart/form-data with ultra-fast timeout (never hang the user)
       const formData = new FormData();
       formData.append('file', file);
 
@@ -261,13 +337,13 @@ export default function ScanWorkspacePage() {
         ? `${process.env.NEXT_PUBLIC_API_URL}/api/ocr`
         : '/api/ocr';
 
-      let data: OcrData | null = null;
+      let data: (OcrData & { ocr_status?: string; text_checks_status?: string; approval_eligible?: boolean }) | null = null;
 
       try {
         const res = await fetch(endpoint, {
           method: 'POST',
           body: formData,
-          signal: AbortSignal.timeout(1800), // Max 1.8s timeout: instantaneous response
+          signal: AbortSignal.timeout(2200),
         });
         if (res.ok) {
           data = await res.json();
@@ -276,41 +352,26 @@ export default function ScanWorkspacePage() {
         // Fallback gracefully on timeout / network error
       }
 
-      // 5. Instant resilient fallback (<10ms) if OCR endpoint is unavailable or slow
-      if (!data || !data.success || !data.extracted_text) {
-        const lower = file.name.toLowerCase();
-        let fallbackText = '';
-        let conf = 0.94;
-
-        if (lower.includes('diwali') || lower.includes('festive') || lower.includes('deepavali')) {
-          fallbackText = 'FESTIVE DIWALI PROMOTION\nSpecial festive offer: 20% discount on Galaxy Z Series for all our customers!\nOffer valid through 31 October 2026.\nUse code: DIWALI20 for exclusive member rewards.';
-        } else if (lower.includes('z_series') || lower.includes('samsung') || lower.includes('galaxy')) {
-          fallbackText = 'GALAXY Z SERIES PROMOTION\nExclusive festive discount of 20% for all customers.\nValid until 31 October 2026.\nUse promo code: GALAXY20';
-        } else if (lower.includes('winter') || lower.includes('travel')) {
-          fallbackText = 'Winter travel packages are available for members through December 31.';
-        } else if (lower.includes('spring') || lower.includes('sale') || lower.includes('clear_offer')) {
-          fallbackText = 'SPRING SALE - Get 20% OFF all Members plans - Valid until 31 March 2026 - Use code SPRING20';
-          conf = 0.95;
-        } else {
-          const cleanTitle = file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-          fallbackText = `${cleanTitle}\nSpecial promotional offer: 20% discount for all customers.\nValid until 31 October 2026.\nUse promo code: PROMO20 for exclusive access.`;
-          conf = 0.90;
-        }
-
-        data = {
-          success: true,
-          filename: file.name,
-          mime_type: file.type || 'image/jpeg',
-          extracted_text: fallbackText,
-          confidence: conf,
-          word_count: fallbackText.split(/\s+/).length,
-          is_sample: false,
-          visual_checks_status: 'ready',
-        };
+      // 6. Handle explicit extraction failure or unreadable text
+      if (!data || !data.success || data.ocr_status === 'failed' || !data.extracted_text) {
+        setPipelineStatus(prev => ({
+          ...prev,
+          textExtraction: 'failed',
+          visualChecks: 'ready',
+        }));
+        setOcrError({
+          filename: cleanedName || file.name,
+          message: data?.message || 'We could not read reliable text from this image. Text-based policy checks have not been completed.',
+        });
+        setContentText('');
+        setTextChecksStatus('not_run');
+        setIsManualInputRequired(true);
+        showToast('Text extraction failed: readable text required');
+        return;
       }
 
-      // 6. Corrupted-text protection check
-      const text = (data?.extracted_text || '').trim();
+      // 7. Corrupted-text protection check
+      const text = (data.extracted_text || '').trim();
       const { corrupted, reason } = checkIsCorruptedText(text);
       if (corrupted) {
         setPipelineStatus(prev => ({
@@ -319,19 +380,24 @@ export default function ScanWorkspacePage() {
           visualChecks: 'ready',
         }));
         setOcrError({
-          filename: file.name,
-          message: `We could not read readable text from this image (${reason}). Binary decode artifacts rejected for safety.`,
+          filename: cleanedName || file.name,
+          message: `We could not read reliable text from this image (${reason}). Text-based policy checks have not been completed.`,
         });
-        showToast('Corrupted text rejected for safety');
+        setContentText('');
+        setTextChecksStatus('not_run');
+        setIsManualInputRequired(true);
+        showToast('Corrupted OCR text rejected for safety');
         return;
       }
 
-      // 7. Accept clean extracted text
+      // 8. Accept clean extracted text
       setContentText(text);
       if (!title) {
-        setTitle(file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' '));
+        setTitle(cleanedName.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' '));
       }
       setOcrResult(data);
+      setTextChecksStatus('not_run');
+      setIsManualInputRequired(false);
       setPipelineStatus({
         imageUploaded: true,
         previewGenerated: true,
@@ -339,11 +405,11 @@ export default function ScanWorkspacePage() {
         visualChecks: 'ready',
       });
       setOcrInfo({
-        fileName: file.name,
+        fileName: cleanedName || file.name,
         method: data.is_sample ? 'OCR sample · Fictional demo data' : 'PyMuPDF + Tesseract OCR',
         resolution: `Confidence: ${Math.round((data.confidence || 0.92) * 100)}% • ${data.word_count || text.split(/\s+/).length} words detected`,
       });
-      showToast(`Extracted copy from ${file.name}`);
+      showToast(`Extracted copy from ${cleanedName || file.name}`);
     } catch (err: any) {
       setPipelineStatus(prev => ({
         ...prev,
@@ -351,9 +417,12 @@ export default function ScanWorkspacePage() {
         visualChecks: 'ready',
       }));
       setOcrError({
-        filename: file.name,
-        message: 'We could not read the text from this image. Try uploading a clearer image or paste the campaign copy manually.',
+        filename: cleanedName || file.name,
+        message: 'We could not read reliable text from this image. Text-based policy checks have not been completed.',
       });
+      setContentText('');
+      setTextChecksStatus('not_run');
+      setIsManualInputRequired(true);
     } finally {
       setIsExtracting(false);
     }
@@ -720,12 +789,19 @@ export default function ScanWorkspacePage() {
                 <div className={styles.imagePreviewDetails}>
                   <div className={styles.imagePreviewName}>
                     <ImageIcon size={14} color="#38bdf8" />
-                    <span>{uploadedFileName}</span>
+                    <span>{cleanedFilename || uploadedFileName}</span>
                   </div>
                   <div className={styles.imagePreviewMeta}>
-                    {ocrInfo ? ocrInfo.resolution : 'Asset received for verification'}
+                    <span>Original filename: <strong>{cleanedFilename || uploadedFileName}</strong></span>
+                    {detectedMimeType && <span> &bull; Detected type: <strong>{detectedMimeType}</strong></span>}
                   </div>
-                  <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+                  {brandDisclaimer && (
+                    <div className={styles.brandDisclaimerPill} style={{ marginTop: 4 }}>
+                      <Shield size={12} />
+                      <span>{brandDisclaimer}</span>
+                    </div>
+                  )}
+                  <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
                     <button
                       type="button"
                       className={styles.removeImageBtn}
@@ -793,20 +869,25 @@ export default function ScanWorkspacePage() {
           {ocrError && (
             <div className={styles.ocrErrorCard}>
               <div className={styles.ocrErrorHeader}>
-                <AlertTriangle size={20} color="#f43f5e" style={{ flexShrink: 0, marginTop: 2 }} />
+                <AlertTriangle size={22} color="#f43f5e" style={{ flexShrink: 0, marginTop: 2 }} />
                 <div>
                   <div className={styles.ocrErrorTitle}>
-                    We could not read the text from this image.
+                    Text extraction failed
                   </div>
                   <div className={styles.ocrErrorDesc}>
-                    Try uploading a clearer image or paste the campaign copy manually.
+                    We could not read reliable text from this image. Text-based policy checks have not been completed.
                   </div>
                 </div>
               </div>
 
               <div className={styles.ocrErrorMetaRow}>
-                <span>Image received: <strong>{ocrError.filename}</strong></span>
-                <span>OCR status: <strong>Could not extract readable text</strong></span>
+                <span>Original filename: <strong>{cleanedFilename || ocrError.filename}</strong></span>
+                <span>Detected type: <strong>{detectedMimeType}</strong></span>
+                <span>OCR status: <strong style={{ color: '#fb7185' }}>Could not extract readable text</strong></span>
+              </div>
+
+              <div style={{ fontSize: '0.8rem', color: '#f8fafc', fontWeight: 600 }}>
+                You can:
               </div>
 
               <div className={styles.ocrErrorActions}>
@@ -816,18 +897,92 @@ export default function ScanWorkspacePage() {
                   onClick={() => fileInputRef.current?.click()}
                 >
                   <Upload size={14} />
-                  Try another image
+                  Upload a clearer image
                 </button>
                 <button
                   type="button"
                   className={styles.manualTextBtn}
                   onClick={() => {
+                    setIsManualInputRequired(true);
                     setOcrError(null);
                     textareaRef.current?.focus();
+                    showToast('Manual copy entry mode active. Enter copy below to run checks.');
                   }}
                 >
                   <Edit3 size={14} />
-                  Enter text manually
+                  Enter campaign copy manually
+                </button>
+                <button
+                  type="button"
+                  className={styles.visualOnlyBtn}
+                  onClick={() => {
+                    setIsVisualOnlyMode(true);
+                    setOcrError(null);
+                    showToast('Visual review only selected');
+                  }}
+                >
+                  <Eye size={14} />
+                  Continue with visual-only checks
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Visual Review Only Active Banner */}
+          {isVisualOnlyMode && (
+            <div className={styles.visualOnlyBanner}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#fbbf24', fontWeight: 700, fontSize: '0.9rem' }}>
+                <Eye size={16} />
+                <span>Visual review only</span>
+              </div>
+              <div style={{ fontSize: '0.84rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                Text and claim checks are pending because readable copy was not available.
+              </div>
+              <div style={{ marginTop: 8, display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+                <Link
+                  href="/review"
+                  onClick={() => {
+                    reviewClient.addDraftToQueue({
+                      title: title || cleanedFilename || 'Visual Brand Asset Review',
+                      content: `[Visual Asset: ${cleanedFilename || uploadedFileName}] — Readable copy not extracted. Visual brand identity verified.`,
+                      blockersCount: 0,
+                      warningsCount: 0,
+                      findings: [],
+                      asset_status: 'uploaded',
+                      preview_status: 'ready',
+                      ocr_status: 'failed',
+                      ocr_text: null,
+                      ocr_confidence: null,
+                      visual_checks_status: 'ready',
+                      text_checks_status: 'not_run',
+                      review_status: 'visual_only',
+                      approval_eligible: false,
+                      passport_eligible: false,
+                      asset_filename: uploadedFileName || undefined,
+                      original_filename: cleanedFilename || uploadedFileName || undefined,
+                      detected_mime_type: detectedMimeType,
+                      brand_disclaimer: brandDisclaimer,
+                      is_visual_only: true,
+                      decision_limitations: 'Visual review only. Text and claim checks are pending because readable copy was not available.',
+                    });
+                  }}
+                  className={styles.reviewGateBtn}
+                  style={{ textDecoration: 'none' }}
+                >
+                  <span>Submit Visual-Only Draft to Review Gate</span>
+                  <ArrowRight size={15} />
+                </Link>
+                <button
+                  type="button"
+                  className={styles.manualTextBtn}
+                  onClick={() => {
+                    setIsVisualOnlyMode(false);
+                    setIsManualInputRequired(true);
+                    textareaRef.current?.focus();
+                  }}
+                >
+                  <Edit3 size={13} />
+                  Switch to Manual Copy Entry
                 </button>
               </div>
             </div>
@@ -1120,17 +1275,17 @@ export default function ScanWorkspacePage() {
                 <div className={styles.nextActionCard}>
                   <div className={styles.nextActionText}>
                     <div className={styles.nextActionTitle}>
-                      Draft Cleared for Review Gate
+                      Checked — no findings
                     </div>
                     <div className={styles.nextActionDesc}>
-                      Zero blockers found. Ready to submit to Review Gate for authorised reviewer approval and Content Passport creation.
+                      Draft verified against active policies with zero citations flagged. Ready to submit to Review Gate for authorised reviewer approval.
                     </div>
                   </div>
                   <Link
                     href="/review"
                     onClick={() => {
                       reviewClient.addDraftToQueue({
-                        title,
+                        title: title || cleanedFilename || 'Verified Marketing Copy',
                         content: contentText,
                         blockersCount: 0,
                         warningsCount: findings.filter(f => f.severity === 'warning' || f.severity === 'medium').length,
@@ -1144,6 +1299,20 @@ export default function ScanWorkspacePage() {
                           explanation: f.explanation,
                           suggested_fix: f.suggested_fix,
                         })),
+                        asset_status: uploadedFileName ? 'uploaded' : 'none',
+                        preview_status: imagePreviewUrl ? 'ready' : 'none',
+                        ocr_status: ocrResult ? 'completed' : 'none',
+                        ocr_text: contentText,
+                        ocr_confidence: ocrResult?.confidence || 0.94,
+                        visual_checks_status: uploadedFileName ? 'ready' : 'none',
+                        text_checks_status: 'checked_no_findings',
+                        review_status: 'ready_for_review',
+                        approval_eligible: true,
+                        passport_eligible: true,
+                        asset_filename: uploadedFileName || undefined,
+                        original_filename: cleanedFilename || uploadedFileName || undefined,
+                        detected_mime_type: detectedMimeType,
+                        brand_disclaimer: brandDisclaimer,
                       });
                     }}
                     className={styles.reviewGateBtn}

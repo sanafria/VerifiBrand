@@ -8,13 +8,12 @@ import {
   Calendar, User, Clock, FileText,
   Award, Hash, Copy, Check, ArrowLeft, AlertOctagon, Lock,
   Download, Share2, Sparkles, CheckCheck, ChevronDown, ChevronUp,
-  FileCheck, ShieldAlert
+  FileCheck, ShieldAlert, Eye
 } from 'lucide-react';
 import {
   reviewClient,
   PassportRecord,
-  computeCanonicalSha256,
-  SEED_DEFAULT_PASSPORTS
+  computeCanonicalSha256
 } from '@/lib/api/reviewClient';
 import { CertificateSeal } from './CertificateSeal';
 import styles from './page.module.css';
@@ -26,6 +25,7 @@ function PassportsContent() {
   const [passports, setPassports] = useState<PassportRecord[]>([]);
   const [selectedPassport, setSelectedPassport] = useState<PassportRecord | null>(null);
   const [filter, setFilter] = useState<'all' | 'valid' | 'override'>('all');
+  const [noPassportReason, setNoPassportReason] = useState<string | null>(null);
   
   // Interactive state
   const [copiedHash, setCopiedHash] = useState(false);
@@ -45,20 +45,25 @@ function PassportsContent() {
   useEffect(() => {
     async function loadData() {
       let list = reviewClient.getAllPassports();
-      if (list.length === 0) {
-        // Fallback to seed records
-        list = Object.values(SEED_DEFAULT_PASSPORTS);
-      }
       setPassports(list);
 
       if (queryPassportId) {
         const found = list.find(p => p.id === queryPassportId);
         if (found) {
           setSelectedPassport(found);
+          setNoPassportReason(null);
         } else {
+          const queueItem = reviewClient.getQueueItem(queryPassportId);
+          if (queueItem && (queueItem.ocr_status === 'failed' || queueItem.text_checks_status === 'not_run')) {
+            setSelectedPassport(null);
+            setNoPassportReason('Text extraction failed: No Content Passport created because readable text was not extracted and approved.');
+            return;
+          }
+
           const direct = await reviewClient.getPassport(queryPassportId);
           if (direct) {
             setSelectedPassport(direct);
+            setNoPassportReason(null);
             setPassports(prev => [direct, ...prev]);
           } else if (list.length > 0) {
             setSelectedPassport(list[0]);
@@ -205,17 +210,24 @@ function PassportsContent() {
   });
 
   const snapshot = selectedPassport?.metadata_snapshot || {};
+  const isVisualOnly = snapshot.approval_type === 'visual_only' || snapshot.decision === 'approved_with_documented_limitation';
+  const isDemoSeed = Boolean(snapshot.is_demo_seed || selectedPassport?.id?.startsWith('pass_demo_'));
   const findingsList = snapshot.findings_summary || [];
-  const evidenceList = snapshot.evidence_used || [
-    { name: 'Promotional Claims Policy', version: 'v2.1', type: 'Policy Standard', authority: 'Legal & Regulatory' },
-    { name: 'Marketing Claims Register', version: 'Ref #014', type: 'Fact Register', authority: 'Verified Product Specs' },
-    { name: 'Approved Terminology Standard', version: 'v1.4', type: 'Brand Guideline', authority: 'Brand Voice Guidelines' },
-    { name: 'Primary Logo & Asset Guide', version: 'v3.2', type: 'Visual Asset', authority: 'Global Design System' }
-  ];
+
+  const evidenceList = snapshot.evidence_used || (isVisualOnly
+    ? [
+        { name: 'Primary Logo & Asset Guide', version: 'v3.2', type: 'Visual Asset', authority: 'Global Design System' },
+        { name: 'Brand Visual Identity Standard', version: 'v2.0', type: 'Design System', authority: 'Brand Governance' },
+      ]
+    : [
+        { name: 'Promotional Claims Policy', version: 'v2.1', type: 'Policy Standard', authority: 'Legal & Regulatory' },
+        { name: 'Approved Terminology Standard', version: 'v1.4', type: 'Brand Guideline', authority: 'Brand Voice Guidelines' },
+      ]);
+
   const reviewStats = snapshot.review_stats || {
-    total_findings: findingsList.length || 3,
-    suggestions_applied: findingsList.filter((f: any) => f.status === 'resolved').length || 2,
-    approved_with_override: findingsList.filter((f: any) => f.status === 'override').length || 1,
+    total_findings: findingsList.length,
+    suggestions_applied: findingsList.filter((f: any) => f.status === 'resolved' || f.is_verified).length,
+    approved_with_override: isVisualOnly ? 1 : findingsList.filter((f: any) => f.status === 'override').length,
   };
 
   return (
@@ -329,37 +341,37 @@ function PassportsContent() {
         <div className={styles.metricCard}>
           <div className={styles.metricLabel}>Campaign Version</div>
           <div className={styles.metricVal} style={{ color: 'var(--brand-navy)' }}>
-            v{snapshot.version || 4}
+            {selectedPassport ? `v${snapshot.version || 1}` : '—'}
           </div>
           <div className={styles.metricSub}>
-            {snapshot.draft_title || 'Summer Membership Campaign'}
+            {snapshot.draft_title || (selectedPassport ? 'Marketing Campaign' : 'No passport selected')}
           </div>
         </div>
 
         <div className={styles.metricCard}>
           <div className={styles.metricLabel}>Governance Status</div>
-          <div className={styles.metricVal} style={{ color: selectedPassport?.hash_verified ? 'var(--status-approved-text)' : 'var(--status-blocked-text)' }}>
-            {selectedPassport?.hash_verified ? 'Record Verified' : 'Tamper Alert'}
+          <div className={styles.metricVal} style={{ color: selectedPassport ? (selectedPassport?.hash_verified ? 'var(--status-approved-text)' : 'var(--status-blocked-text)') : 'var(--text-muted)' }}>
+            {selectedPassport ? (selectedPassport?.hash_verified ? 'Record Verified' : 'Tamper Alert') : '—'}
           </div>
           <div className={styles.metricSub}>
-            {selectedPassport?.hash_verified ? 'Integrity check passed' : 'Discrepancy detected'}
+            {selectedPassport ? (selectedPassport?.hash_verified ? 'Integrity check passed' : 'Discrepancy detected') : 'Awaiting issued passports'}
           </div>
         </div>
 
         <div className={styles.metricCard}>
           <div className={styles.metricLabel}>Reviewer Sign-off</div>
           <div className={styles.metricVal} style={{ color: 'var(--brand-gold)', fontSize: '1.25rem' }}>
-            {snapshot.reviewer_name || 'Authorised Reviewer'}
+            {selectedPassport ? (snapshot.reviewer_name || 'Authorised Reviewer') : '—'}
           </div>
           <div className={styles.metricSub}>
-            {snapshot.reviewer_role || 'Senior Compliance Officer'}
+            {selectedPassport ? (snapshot.reviewer_role || 'Senior Compliance Officer') : 'No active reviewer'}
           </div>
         </div>
 
         <div className={styles.metricCard}>
           <div className={styles.metricLabel}>Evidence Checked</div>
-          <div className={styles.metricVal} style={{ color: 'var(--color-success)' }}>
-            {evidenceList.length} Sources
+          <div className={styles.metricVal} style={{ color: selectedPassport ? 'var(--color-success)' : 'var(--text-muted)' }}>
+            {selectedPassport ? `${evidenceList.length} Sources` : '0 Sources'}
           </div>
           <div className={styles.metricSub}>
             Policies, Fact Registers &amp; Specs
@@ -400,53 +412,60 @@ function PassportsContent() {
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {filtered.map(p => {
-              const isSelected = selectedPassport?.id === p.id;
-              const pSnap = p.metadata_snapshot || {};
-              const isOverride = pSnap.decision === 'approved_with_override';
+            {filtered.length === 0 ? (
+              <div style={{ padding: '32px 16px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.82rem', background: 'var(--bg-surface)', borderRadius: 8, border: '1px dashed var(--border-subtle)' }}>
+                <Award size={24} style={{ opacity: 0.4, display: 'block', margin: '0 auto 8px' }} />
+                No issued passports found.
+              </div>
+            ) : (
+              filtered.map(p => {
+                const isSelected = selectedPassport?.id === p.id;
+                const pSnap = p.metadata_snapshot || {};
+                const isOverride = pSnap.decision === 'approved_with_override';
 
-              return (
-                <div
-                  key={p.id}
-                  className={`${styles.passportItem} ${isSelected ? styles.passportItemActive : ''}`}
-                  onClick={() => {
-                    setSelectedPassport(p);
-                    setIsTampered(false);
-                    setTamperedHash(null);
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-                    <code style={{ fontSize: '0.82rem', fontWeight: 800, color: 'var(--brand-navy)' }}>
-                      {p.id}
-                    </code>
-                    <span style={{
-                      fontSize: '0.66rem',
-                      fontWeight: 800,
-                      padding: '2px 7px',
-                      borderRadius: 4,
-                      background: isOverride ? 'var(--status-warning-bg)' : 'var(--status-approved-bg)',
-                      color: isOverride ? 'var(--status-warning-text)' : 'var(--status-approved-text)',
-                      textTransform: 'uppercase'
-                    }}>
-                      {isOverride ? 'Override' : 'Approved'}
-                    </span>
-                  </div>
+                return (
+                  <div
+                    key={p.id}
+                    className={`${styles.passportItem} ${isSelected ? styles.passportItemActive : ''}`}
+                    onClick={() => {
+                      setSelectedPassport(p);
+                      setIsTampered(false);
+                      setTamperedHash(null);
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                      <code style={{ fontSize: '0.82rem', fontWeight: 800, color: 'var(--brand-navy)' }}>
+                        {p.id}
+                      </code>
+                      <span style={{
+                        fontSize: '0.66rem',
+                        fontWeight: 800,
+                        padding: '2px 7px',
+                        borderRadius: 4,
+                        background: isOverride ? 'var(--status-warning-bg)' : 'var(--status-approved-bg)',
+                        color: isOverride ? 'var(--status-warning-text)' : 'var(--status-approved-text)',
+                        textTransform: 'uppercase'
+                      }}>
+                        {isOverride ? 'Override' : 'Approved'}
+                      </span>
+                    </div>
 
-                  <div style={{ fontSize: '0.84rem', color: 'var(--text-primary)', marginBottom: 6, fontWeight: 700, lineHeight: 1.3 }}>
-                    {pSnap.draft_title || 'Marketing Campaign'}
-                  </div>
+                    <div style={{ fontSize: '0.84rem', color: 'var(--text-primary)', marginBottom: 6, fontWeight: 700, lineHeight: 1.3 }}>
+                      {pSnap.draft_title || 'Marketing Campaign'}
+                    </div>
 
-                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                      <User size={12} /> {pSnap.reviewer_name || 'Reviewer'} • v{pSnap.version || 4}
-                    </span>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                      <Clock size={12} /> {p.created_at ? p.created_at.slice(0, 10) : '2026-10-24'}
-                    </span>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                        <User size={12} /> {pSnap.reviewer_name || 'Reviewer'} • v{pSnap.version || 4}
+                      </span>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                        <Clock size={12} /> {p.created_at ? p.created_at.slice(0, 10) : '2026-10-24'}
+                      </span>
+                    </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })
+            )}
           </div>
         </div>
 
@@ -464,11 +483,11 @@ function PassportsContent() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
                   <Award size={24} color="var(--brand-gold)" />
                   <span style={{ fontSize: '1.45rem', fontWeight: 900, color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>
-                    {snapshot.draft_title || 'Summer Membership Campaign'}
+                    {snapshot.draft_title || 'Marketing Campaign'}
                   </span>
                 </div>
                 <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                  Passport ID: <code style={{ color: 'var(--brand-navy)', fontWeight: 800 }}>{selectedPassport.id}</code> • Version: <strong style={{ color: 'var(--text-primary)' }}>{snapshot.version || 4}</strong> • Review ID: <code>{selectedPassport.review_id}</code>
+                  Passport ID: <code style={{ color: 'var(--brand-navy)', fontWeight: 800 }}>{selectedPassport.id}</code> • Version: <strong style={{ color: 'var(--text-primary)' }}>{snapshot.version || 1}</strong> • Review ID: <code>{selectedPassport.review_id}</code>
                 </div>
               </div>
 
@@ -488,8 +507,68 @@ function PassportsContent() {
               </div>
             </div>
 
+            {/* Seeded Demo Banner if applicable */}
+            {isDemoSeed && (
+              <div style={{
+                background: 'rgba(245, 158, 11, 0.1)',
+                border: '1px solid rgba(245, 158, 11, 0.35)',
+                borderRadius: 6,
+                padding: '6px 12px',
+                fontSize: '0.76rem',
+                fontWeight: 700,
+                color: '#d97706',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                marginBottom: 10
+              }}>
+                <Sparkles size={13} />
+                <span>Demo Passport &bull; Seeded sample record</span>
+              </div>
+            )}
+
+            {/* Transparent Visual-Only Limitation Banner if applicable */}
+            {isVisualOnly && (
+              <div style={{
+                background: 'rgba(245, 158, 11, 0.08)',
+                border: '1px solid rgba(245, 158, 11, 0.35)',
+                borderRadius: 8,
+                padding: '14px 18px',
+                marginBottom: 12,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 6
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#b45309', fontWeight: 800, fontSize: '0.94rem' }}>
+                    <Eye size={18} />
+                    <span>Approval type: Visual-only review</span>
+                  </div>
+                  <span style={{
+                    background: 'rgba(245, 158, 11, 0.2)',
+                    color: '#b45309',
+                    fontSize: '0.72rem',
+                    fontWeight: 800,
+                    padding: '2px 8px',
+                    borderRadius: 4
+                  }}>
+                    Approved with documented limitation
+                  </span>
+                </div>
+                <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 6, marginTop: 4 }}>
+                  <div>Text review: <strong style={{ color: '#b91c1c' }}>Not completed</strong></div>
+                  <div>OCR status: <strong style={{ color: '#b91c1c' }}>Failed</strong></div>
+                  <div>Reviewer: <strong style={{ color: 'var(--text-primary)' }}>{snapshot.reviewer_name || 'Sarah Chen'}</strong></div>
+                  <div>Decision: <strong style={{ color: 'var(--brand-forest)' }}>Approved with documented limitation</strong></div>
+                </div>
+                <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)', fontStyle: 'italic', marginTop: 4 }}>
+                  Documented limitation: &ldquo;{snapshot.decision_limitations || 'Visual brand elements verified only. Text and claim checks not completed.'}&rdquo;
+                </div>
+              </div>
+            )}
+
             {/* Quick Actions Row */}
-            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: -14 }}>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: -8 }}>
               <button
                 type="button"
                 className={styles.actionIconBtn}
@@ -528,7 +607,9 @@ function PassportsContent() {
                     <span>Approved Content Snapshot</span>
                   </div>
                   <div className={styles.sectionSubtitle}>
-                    The exact text frozen and cleared for publication across digital channels.
+                    {isVisualOnly
+                      ? 'Visual brand assets approved with recorded limitation.'
+                      : 'The exact text frozen and cleared for publication across digital channels.'}
                   </div>
                 </div>
                 {isTampered && (
@@ -539,7 +620,18 @@ function PassportsContent() {
               </div>
 
               <div className={`${styles.contentBox} ${isTampered ? styles.contentBoxTampered : ''}`}>
-                &ldquo;{snapshot.draft_content || 'Exclusive Summer Access: Eligible Members enjoy verified tier pricing and early preview benefits starting today through August 31st across all partner lounges.'}&rdquo;
+                {isVisualOnly ? (
+                  <div>
+                    <div style={{ fontWeight: 700, color: 'var(--text-primary)', marginBottom: 4 }}>
+                      [Visual Review Asset: {snapshot.asset_filename || snapshot.draft_title || 'Marketing Graphic'}]
+                    </div>
+                    <div style={{ fontSize: '0.84rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
+                      Readable text was not extracted. Visual brand identity, logo clear space, and palette verified against design guidelines. Text and claim checks were not completed.
+                    </div>
+                  </div>
+                ) : (
+                  <span>&ldquo;{snapshot.draft_content || 'Verified marketing draft content frozen for publication.'}&rdquo;</span>
+                )}
               </div>
             </div>
 
@@ -569,7 +661,7 @@ function PassportsContent() {
                 </span>
                 <span className={`${styles.statPill} ${styles.statPillOverride}`}>
                   <AlertTriangle size={14} />
-                  <strong>{reviewStats.approved_with_override}</strong> Approved with Override
+                  <strong>{reviewStats.approved_with_override}</strong> {isVisualOnly ? 'Approved with Limitation' : 'Approved with Override'}
                 </span>
               </div>
 
@@ -736,6 +828,62 @@ function PassportsContent() {
                     </code>
                   </div>
 
+                  {/* Explicit Verification Record Fields Table (Required Governance Fields) */}
+                  <div style={{
+                    marginTop: 12,
+                    background: '#FFFFFF',
+                    border: '1px solid var(--border-light)',
+                    borderRadius: 6,
+                    padding: '12px 14px',
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                    gap: 10,
+                    fontSize: '0.78rem'
+                  }}>
+                    <div>
+                      <span style={{ color: 'var(--text-muted)', display: 'block' }}>Content ID:</span>
+                      <code style={{ color: 'var(--brand-navy)', fontWeight: 700 }}>{selectedPassport.draft_id}</code>
+                    </div>
+                    <div>
+                      <span style={{ color: 'var(--text-muted)', display: 'block' }}>Asset Fingerprint:</span>
+                      <code style={{ color: 'var(--brand-forest)', fontSize: '0.72rem', fontWeight: 700 }}>
+                        {selectedPassport.passport_hash.slice(0, 24)}...
+                      </code>
+                    </div>
+                    <div>
+                      <span style={{ color: 'var(--text-muted)', display: 'block' }}>OCR Extraction Status:</span>
+                      <strong style={{ color: isVisualOnly ? '#b91c1c' : 'var(--brand-forest)' }}>
+                        {snapshot.ocr_status ? snapshot.ocr_status.toUpperCase() : (isVisualOnly ? 'FAILED' : 'COMPLETED')}
+                      </strong>
+                    </div>
+                    <div>
+                      <span style={{ color: 'var(--text-muted)', display: 'block' }}>OCR Confidence:</span>
+                      <strong style={{ color: 'var(--text-primary)' }}>
+                        {snapshot.ocr_confidence ? `${Math.round(snapshot.ocr_confidence * 100)}%` : 'N/A (Visual review)'}
+                      </strong>
+                    </div>
+                    <div>
+                      <span style={{ color: 'var(--text-muted)', display: 'block' }}>Findings Evaluated:</span>
+                      <strong style={{ color: 'var(--text-primary)' }}>{reviewStats.total_findings} findings</strong>
+                    </div>
+                    <div>
+                      <span style={{ color: 'var(--text-muted)', display: 'block' }}>Suggestions Applied:</span>
+                      <strong style={{ color: 'var(--text-primary)' }}>{reviewStats.suggestions_applied} applied</strong>
+                    </div>
+                    <div>
+                      <span style={{ color: 'var(--text-muted)', display: 'block' }}>Reviewer Decision:</span>
+                      <strong style={{ color: 'var(--status-approved-text)' }}>
+                        {isVisualOnly ? 'Approved with documented limitation' : 'Approved standard'}
+                      </strong>
+                    </div>
+                    <div>
+                      <span style={{ color: 'var(--text-muted)', display: 'block' }}>Decision Limitations:</span>
+                      <span style={{ color: isVisualOnly ? '#b45309' : 'var(--text-secondary)' }}>
+                        {snapshot.decision_limitations || 'None (Full text & claim review completed)'}
+                      </span>
+                    </div>
+                  </div>
+
                   {/* Avalanche Effect Hash Comparison if Tampered (AT-022) */}
                   {isTampered && tamperedHash && (
                     <div className={styles.tamperComparisonBox}>
@@ -800,9 +948,64 @@ function PassportsContent() {
               )}
             </div>
           </div>
+        ) : noPassportReason ? (
+          <div className={styles.certificateCard} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 400, gap: 14, padding: 32, textAlign: 'center' }}>
+            <AlertOctagon size={42} color="#dc2626" />
+            <span style={{ fontWeight: 800, color: '#b91c1c', fontSize: '1.2rem' }}>
+              No Content Passport created
+            </span>
+            <span style={{ color: 'var(--text-secondary)', fontSize: '0.88rem', maxWidth: 440, lineHeight: 1.5 }}>
+              Reason: Text extraction failed
+            </span>
+            <span style={{ color: 'var(--text-muted)', fontSize: '0.78rem', maxWidth: 460 }}>
+              Text-based policy checks were not completed and verified copy was not provided. Approval is blocked per governance policy.
+            </span>
+            <Link
+              href="/review"
+              style={{
+                marginTop: 8,
+                padding: '8px 18px',
+                borderRadius: 6,
+                background: 'var(--brand-navy)',
+                color: '#FFFFFF',
+                fontSize: '0.82rem',
+                fontWeight: 700,
+                textDecoration: 'none',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6
+              }}
+            >
+              <ArrowLeft size={14} />
+              <span>Return to Review Gate</span>
+            </Link>
+          </div>
         ) : (
-          <div className={styles.certificateCard} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 400 }}>
-            <span style={{ color: 'var(--text-muted)' }}>No passport selected</span>
+          <div className={styles.certificateCard} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 400, gap: 12, padding: 32, textAlign: 'center' }}>
+            <Award size={36} color="var(--border-subtle)" />
+            <span style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '1rem' }}>No Content Passport selected</span>
+            <span style={{ color: 'var(--text-muted)', fontSize: '0.82rem', maxWidth: 400 }}>
+              Passports are automatically minted when authorized reviewers approve drafts in the Review Gate.
+            </span>
+            <Link
+              href="/review"
+              style={{
+                marginTop: 8,
+                padding: '8px 16px',
+                borderRadius: 6,
+                background: 'var(--brand-navy)',
+                color: '#FFFFFF',
+                fontSize: '0.82rem',
+                fontWeight: 700,
+                textDecoration: 'none',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6
+              }}
+            >
+              <span>Go to Review Gate</span>
+              <ArrowLeft size={14} style={{ transform: 'rotate(180deg)' }} />
+            </Link>
           </div>
         )}
       </div>

@@ -6,7 +6,8 @@
  * 2. Role-based authorization enforcement (X-User-Role: reviewer vs creator)
  * 3. Immutable Content Passport issuance with canonical SHA-256 fingerprint
  * 4. Content Passport integrity verification (GET /api/passports/{id})
- * 5. Interactive tamper simulation for hackathon presentation (AT-022)
+ * 5. Explicit processing states: OCR status, text checks status, approval & passport eligibility
+ * 6. Interactive tamper simulation for hackathon presentation (AT-022)
  */
 
 export type ReviewDecision = 'approved' | 'rejected';
@@ -21,6 +22,13 @@ export interface FindingSummaryItem {
   source_quote: string;
   explanation?: string;
   suggested_fix?: string;
+}
+
+export interface EvidenceSourceItem {
+  name: string;
+  version: string;
+  type: string;
+  authority: string;
 }
 
 export interface ReviewQueueItem {
@@ -38,6 +46,34 @@ export interface ReviewQueueItem {
   passportId?: string;
   sha256?: string;
   reviewerComment?: string;
+
+  // Explicit processing state fields (Workflow requirement)
+  asset_status?: 'uploaded' | 'none';
+  preview_status?: 'ready' | 'none';
+  ocr_status?: 'completed' | 'failed' | 'no_text' | 'corrupted' | 'none';
+  ocr_text?: string | null;
+  ocr_confidence?: number | null;
+  visual_checks_status?: 'ready' | 'pending' | 'none';
+  text_checks_status?: 'completed' | 'not_run' | 'checked_no_findings' | 'findings_flagged';
+  review_status?: 'ready_for_review' | 'manual_input_required' | 'visual_only' | 'approved' | 'rejected';
+  approval_eligible: boolean;
+  passport_eligible: boolean;
+
+  // Asset metadata
+  asset_filename?: string;
+  original_filename?: string;
+  detected_mime_type?: string;
+  image_preview_url?: string;
+  brand_disclaimer?: string | null;
+
+  // Visual-only & human decision tracking
+  is_visual_only?: boolean;
+  visual_override_reason?: string;
+  decision_limitations?: string;
+  approval_type?: 'standard' | 'visual_only';
+  evidence_sources?: EvidenceSourceItem[];
+  suggestions_applied_count?: number;
+  is_demo_seed?: boolean;
 }
 
 export interface ReviewCreatePayload {
@@ -45,6 +81,8 @@ export interface ReviewCreatePayload {
   scan_id: string;
   decision: ReviewDecision;
   comment?: string;
+  approval_type?: 'standard' | 'visual_only';
+  visual_override_reason?: string;
 }
 
 export interface ReviewResponse {
@@ -58,6 +96,8 @@ export interface ReviewResponse {
   passport_id?: string;
   sha256?: string;
   created_at: string;
+  approval_type?: 'standard' | 'visual_only';
+  decision_limitations?: string;
 }
 
 export interface PassportRecord {
@@ -76,53 +116,7 @@ const STORAGE_KEY_QUEUE = 'brandledger_review_queue_v1';
 const STORAGE_KEY_PASSPORTS = 'brandledger_passports_v2';
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL !== undefined ? process.env.NEXT_PUBLIC_API_URL : (typeof window !== 'undefined' ? '' : 'http://127.0.0.1:8000');
 
-const INITIAL_QUEUE_DATA: ReviewQueueItem[] = [
-  {
-    id: 'rev_001',
-    draftId: 'c1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d',
-    scanId: 's1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d',
-    title: 'Summer Member Access Campaign (Snippet B)',
-    author: 'Alex Kim (Marketing Creator)',
-    submittedAt: '2026-07-01 14:30 UTC',
-    status: 'pending',
-    content: 'Our Members can access standard pricing today!',
-    blockersCount: 0,
-    warningsCount: 0,
-    findings: [],
-  },
-  {
-    id: 'rev_002',
-    draftId: 'c9b8c7d6-e5f4-4a3b-2c1d-0e1f2a3b4c5e',
-    scanId: 's9b8c7d6-e5f4-4a3b-2c1d-0e1f2a3b4c5e',
-    title: 'Disallowed Terminology Draft (Snippet A)',
-    author: 'External Ad Agency',
-    submittedAt: '2026-07-01 14:15 UTC',
-    status: 'pending',
-    content: 'Our customers can access the exclusive Summer Discount today!',
-    blockersCount: 2,
-    warningsCount: 1,
-    findings: [
-      {
-        policy_card_id: 'pol_term_001',
-        policy_version: '1.0',
-        category: 'terminology',
-        severity: 'high',
-        matched_text: 'customers',
-        source_quote: 'The brand prohibits the term Customers and requires the term Members',
-        explanation: 'Disallowed addressing term "customers" detected. Brand guidelines strictly require "Members".',
-      },
-      {
-        policy_card_id: 'pol_offer_002',
-        policy_version: '1.0',
-        category: 'expired_offer',
-        severity: 'high',
-        matched_text: 'Summer Discount',
-        source_quote: 'Summer Discount promotion is valid until 2026-06-30 across all digital channels.',
-        explanation: 'Promotion "Summer Discount" expired on 2026-06-30. Draft is being published post-expiration.',
-      },
-    ],
-  },
-];
+const INITIAL_QUEUE_DATA: ReviewQueueItem[] = [];
 
 /**
  * Deterministically computes canonical SHA-256 hash matching backend
@@ -168,174 +162,23 @@ export async function computeCanonicalSha256(obj: Record<string, any>): Promise<
   return `${hex}a855f738bdf810b9819f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822`.slice(0, 64);
 }
 
-export const SEED_DEFAULT_PASSPORTS: Record<string, PassportRecord> = {
-  pass_demo_verified_001: {
-    id: 'pass_demo_verified_001',
-    draft_id: 'd8f921a0-4000-8000-000000000001',
-    scan_id: 's8f921a0-4000-8000-000000000001',
-    review_id: 'rev_20261024_001',
-    passport_hash: '3a8f5b49e19d7c62b508f7aa19ef84a1236894d03e9c708fa8d16723b49e01f2',
-    status: 'valid',
-    created_at: '2026-10-24T14:32:00.000Z',
-    hash_verified: true,
-    metadata_snapshot: {
-      draft_title: 'Summer Membership Campaign',
-      version: 4,
-      decision: 'approved_with_override',
-      status_label: 'Approved with override',
-      reviewer_name: 'Authorised Reviewer',
-      reviewer_role: 'Senior Compliance Officer',
-      reviewer_id: 'rev-auth-01',
-      comment: 'Partner-specific campaign with supporting evidence attached. Verified against active Q3 promotional schedule and legal clearance.',
-      issued_at: '2026-10-24T14:32:00.000Z',
-      last_verified_at: '24 Oct 2026, 14:32 UTC',
-      draft_content: 'Exclusive Summer Access: Eligible Members enjoy verified tier pricing and early preview benefits starting today through August 31st across all partner lounges.',
-      findings_summary: [
-        {
-          title: 'Unsupported promotional claim',
-          status: 'resolved',
-          status_label: 'Resolved',
-          policy: 'Promotional Claims v2.1',
-          category: 'Claims & Legal',
-          detail: 'Detected absolute claim "guaranteed lowest rates anywhere". Adjusted to fact-checked phrasing "verified tier pricing".'
-        },
-        {
-          title: 'Expired promotional offer',
-          status: 'resolved',
-          status_label: 'Resolved',
-          policy: 'Fact: Offer Register #014',
-          category: 'Product Facts',
-          detail: 'Referenced outdated June early-bird code. Updated to active August 31st promo window per commercial register.'
-        },
-        {
-          title: 'Audience terminology variance',
-          status: 'override',
-          status_label: 'Approved with override',
-          policy: 'Policy: Audience Language v1.4',
-          category: 'Brand Terminology',
-          detail: 'Partner-specific term "partner lounges" approved by reviewer under Q3 co-marketing agreement Annex C.'
-        }
-      ],
-      review_stats: {
-        total_findings: 3,
-        suggestions_applied: 2,
-        approved_with_override: 1,
-      },
-      evidence_used: [
-        { name: 'Promotional Claims Policy', version: 'v2.1', type: 'Policy Standard', authority: 'Legal & Regulatory' },
-        { name: 'Marketing Claims Register', version: 'Ref #014', type: 'Fact Register', authority: 'Verified Product Specs' },
-        { name: 'Approved Terminology Standard', version: 'v1.4', type: 'Brand Guideline', authority: 'Brand Voice Guidelines' },
-        { name: 'Primary Logo & Asset Guide', version: 'v3.2', type: 'Visual Asset', authority: 'Global Design System' }
-      ],
-      policy_versions_applied: [
-        { policy_card_id: 'pol_promotional_claims', policy_version: '2.1' },
-        { policy_card_id: 'reg_marketing_claims_014', policy_version: '1.0' },
-        { policy_card_id: 'pol_audience_language', policy_version: '1.4' },
-        { policy_card_id: 'ast_primary_logo', policy_version: '3.2' },
-      ],
-    }
-  },
-  pass_enterprise_q3_002: {
-    id: 'pass_enterprise_q3_002',
-    draft_id: 'd9b1c2a3-4000-8000-000000000002',
-    scan_id: 's9b1c2a3-4000-8000-000000000002',
-    review_id: 'rev_20261023_002',
-    passport_hash: '9e7b2a41d08c5f3e2b19a7408d62c1409f87135e82b49c0d1e57a394c8b21067',
-    status: 'valid',
-    created_at: '2026-10-23T11:15:00.000Z',
-    hash_verified: true,
-    metadata_snapshot: {
-      draft_title: 'Global Enterprise Q3 Product Launch',
-      version: 2,
-      decision: 'approved',
-      status_label: 'Approved',
-      reviewer_name: 'Sarah Chen',
-      reviewer_role: 'Compliance Director',
-      reviewer_id: 'rev-sarah-02',
-      comment: 'Fully approved. All corporate terminology and claims verified against Enterprise SLA specifications.',
-      issued_at: '2026-10-23T11:15:00.000Z',
-      last_verified_at: '23 Oct 2026, 11:15 UTC',
-      draft_content: 'VerifiBrand Enterprise empowers compliance and creative teams to detect brand deviations in real time with cryptographic audit assurance.',
-      findings_summary: [
-        {
-          title: 'Unverified uptime claim',
-          status: 'resolved',
-          status_label: 'Resolved',
-          policy: 'Enterprise SLA Claims v3.0',
-          category: 'Claims & Legal',
-          detail: 'Adjusted "100% infallible uptime" to "99.99% enterprise SLA guarantee".'
-        },
-        {
-          title: 'Deprecated trademark mention',
-          status: 'resolved',
-          status_label: 'Resolved',
-          policy: 'Trademark Registry v2.0',
-          category: 'Brand Terminology',
-          detail: 'Updated legacy module name to current VerifiBrand Guard naming standard.'
-        }
-      ],
-      review_stats: {
-        total_findings: 2,
-        suggestions_applied: 2,
-        approved_with_override: 0,
-      },
-      evidence_used: [
-        { name: 'Enterprise SLA Policy', version: 'v3.0', type: 'Policy Standard', authority: 'Legal & Product' },
-        { name: 'Trademark Guidelines', version: 'v2.0', type: 'Brand Guideline', authority: 'IP Legal Counsel' },
-        { name: 'Product Capability Register', version: 'v4.1', type: 'Fact Register', authority: 'Engineering Specs' }
-      ],
-      policy_versions_applied: [
-        { policy_card_id: 'pol_enterprise_sla', policy_version: '3.0' },
-        { policy_card_id: 'pol_trademark', policy_version: '2.0' },
-      ],
-    }
-  },
-  pass_partner_summit_003: {
-    id: 'pass_partner_summit_003',
-    draft_id: 'da1b2c3d-4000-8000-000000000003',
-    scan_id: 'sa1b2c3d-4000-8000-000000000003',
-    review_id: 'rev_20261022_003',
-    passport_hash: '48c901e7d23f4b598a10e623c95107e84ab2103f568d7120e98c74a120539b81',
-    status: 'valid',
-    created_at: '2026-10-22T09:40:00.000Z',
-    hash_verified: true,
-    metadata_snapshot: {
-      draft_title: 'Fintech Partner Summit 2026 Announcement',
-      version: 1,
-      decision: 'approved',
-      status_label: 'Approved',
-      reviewer_name: 'Marcus Vance',
-      reviewer_role: 'Brand Governance Lead',
-      reviewer_id: 'rev-marcus-03',
-      comment: 'Approved for global partner distribution and social channels.',
-      issued_at: '2026-10-22T09:40:00.000Z',
-      last_verified_at: '22 Oct 2026, 09:40 UTC',
-      draft_content: 'Join fintech and compliance leaders in Singapore for the annual VerifiBrand Partner Summit, featuring live governance workshops and developer keynotes.',
-      findings_summary: [
-        {
-          title: 'Location venue disclaimer missing',
-          status: 'resolved',
-          status_label: 'Resolved',
-          policy: 'Event Disclosures v1.2',
-          category: 'Compliance',
-          detail: 'Added venue registration notes and accreditation requirements.'
-        }
-      ],
-      review_stats: {
-        total_findings: 1,
-        suggestions_applied: 1,
-        approved_with_override: 0,
-      },
-      evidence_used: [
-        { name: 'Event Compliance Policy', version: 'v1.2', type: 'Policy Standard', authority: 'Corporate Events' },
-        { name: 'International Marketing Guide', version: 'v2.4', type: 'Brand Guideline', authority: 'Global Marketing' }
-      ],
-      policy_versions_applied: [
-        { policy_card_id: 'pol_event_disclosures', policy_version: '1.2' },
-      ],
-    }
-  }
-};
+/** Seed passport data retained for demo/testing controls only — not shown in production views */
+export const SEED_DEFAULT_PASSPORTS: Record<string, PassportRecord> = {};
+
+const SEED_TITLES = [
+  'Summer Member Access Campaign',
+  'Disallowed Terminology Draft',
+  'Summer Membership Campaign',
+  'Global Enterprise Q3 Product Launch',
+  'Fintech Partner Summit 2026 Announcement',
+];
+
+const SEED_QUEUE_IDS = ['rev_001', 'rev_002'];
+const SEED_PASSPORT_IDS = [
+  'pass_demo_verified_001',
+  'pass_enterprise_q3_002',
+  'pass_partner_summit_003',
+];
 
 class ReviewClient {
   private queue: ReviewQueueItem[] = [...INITIAL_QUEUE_DATA];
@@ -354,17 +197,40 @@ class ReviewClient {
       try {
         const storedQueue = localStorage.getItem(STORAGE_KEY_QUEUE);
         if (storedQueue) {
-          this.queue = JSON.parse(storedQueue);
+          const parsed = JSON.parse(storedQueue);
+          if (Array.isArray(parsed)) {
+            // Filter out any legacy seeded items so only user data is shown
+            this.queue = parsed.filter((item: ReviewQueueItem) => {
+              if (SEED_QUEUE_IDS.includes(item.id)) return false;
+              if (SEED_TITLES.some(seedTitle => item.title && item.title.includes(seedTitle))) return false;
+              return true;
+            });
+            localStorage.setItem(STORAGE_KEY_QUEUE, JSON.stringify(this.queue));
+          } else {
+            this.queue = [];
+            localStorage.setItem(STORAGE_KEY_QUEUE, JSON.stringify(this.queue));
+          }
         } else {
+          this.queue = [];
           localStorage.setItem(STORAGE_KEY_QUEUE, JSON.stringify(this.queue));
         }
 
         const storedPassports = localStorage.getItem(STORAGE_KEY_PASSPORTS);
         if (storedPassports) {
           const parsed = JSON.parse(storedPassports);
-          this.passports = { ...SEED_DEFAULT_PASSPORTS, ...parsed };
+          const sanitized: Record<string, PassportRecord> = {};
+          if (parsed && typeof parsed === 'object') {
+            for (const [id, record] of Object.entries(parsed as Record<string, PassportRecord>)) {
+              if (SEED_PASSPORT_IDS.includes(id)) continue;
+              const draftTitle = record?.metadata_snapshot?.draft_title || '';
+              if (SEED_TITLES.some(seedTitle => draftTitle.includes(seedTitle))) continue;
+              sanitized[id] = record;
+            }
+          }
+          this.passports = sanitized;
+          localStorage.setItem(STORAGE_KEY_PASSPORTS, JSON.stringify(this.passports));
         } else {
-          this.passports = { ...SEED_DEFAULT_PASSPORTS };
+          this.passports = {};
           localStorage.setItem(STORAGE_KEY_PASSPORTS, JSON.stringify(this.passports));
         }
       } catch (e) {
@@ -403,30 +269,158 @@ class ReviewClient {
     blockersCount: number;
     warningsCount: number;
     findings?: FindingSummaryItem[];
+    asset_status?: 'uploaded' | 'none';
+    preview_status?: 'ready' | 'none';
+    ocr_status?: 'completed' | 'failed' | 'no_text' | 'corrupted' | 'none';
+    ocr_text?: string | null;
+    ocr_confidence?: number | null;
+    visual_checks_status?: 'ready' | 'pending' | 'none';
+    text_checks_status?: 'completed' | 'not_run' | 'checked_no_findings' | 'findings_flagged';
+    review_status?: 'ready_for_review' | 'manual_input_required' | 'visual_only' | 'approved' | 'rejected';
+    approval_eligible?: boolean;
+    passport_eligible?: boolean;
+    asset_filename?: string;
+    original_filename?: string;
+    detected_mime_type?: string;
+    image_preview_url?: string;
+    brand_disclaimer?: string | null;
+    is_visual_only?: boolean;
+    visual_override_reason?: string;
+    decision_limitations?: string;
+    evidence_sources?: EvidenceSourceItem[];
+    suggestions_applied_count?: number;
+    is_demo_seed?: boolean;
   }): ReviewQueueItem {
     this.initStorage();
     const id = `rev_${Date.now().toString().slice(-6)}`;
     const draftId = draft.draftId || `d${Date.now().toString(16).slice(-8)}-4000-8000-000000000001`;
     const scanId = draft.scanId || `s${Date.now().toString(16).slice(-8)}-4000-8000-000000000001`;
 
+    const ocrStatus = draft.ocr_status || 'completed';
+    const textChecksStatus = draft.text_checks_status || (draft.content ? 'completed' : 'not_run');
+    const isOcrFailed = ocrStatus === 'failed' || ocrStatus === 'corrupted' || ocrStatus === 'no_text';
+    const isTextChecksNotRun = textChecksStatus === 'not_run';
+
+    // Strict rule: Approval & passport are disabled when OCR fails and no manual copy is entered
+    let approvalEligible = draft.approval_eligible !== undefined
+      ? draft.approval_eligible
+      : (draft.blockersCount === 0 && !isOcrFailed && !isTextChecksNotRun);
+
+    let passportEligible = draft.passport_eligible !== undefined
+      ? draft.passport_eligible
+      : approvalEligible;
+
+    let reviewStatus = draft.review_status || (
+      (isOcrFailed || isTextChecksNotRun) ? 'manual_input_required' : 'ready_for_review'
+    );
+
+    if (draft.is_visual_only) {
+      reviewStatus = 'visual_only';
+      approvalEligible = false; // Normal approval disabled; requires explicit human exception
+      passportEligible = false;
+    }
+
     const newItem: ReviewQueueItem = {
       id,
       draftId,
       scanId,
       title: draft.title || 'Scanned Marketing Copy',
-      author: draft.author || 'Alex Kim (Marketing Creator)',
+      author: draft.author || 'Current User',
       submittedAt: new Date().toISOString().replace('T', ' ').slice(0, 19) + ' UTC',
       status: 'pending',
       content: draft.content,
       blockersCount: draft.blockersCount,
       warningsCount: draft.warningsCount,
       findings: draft.findings || [],
+      asset_status: draft.asset_status || 'none',
+      preview_status: draft.preview_status || 'none',
+      ocr_status: ocrStatus,
+      ocr_text: draft.ocr_text ?? (isOcrFailed ? null : draft.content),
+      ocr_confidence: draft.ocr_confidence ?? (isOcrFailed ? null : 0.92),
+      visual_checks_status: draft.visual_checks_status || (draft.asset_status === 'uploaded' ? 'ready' : 'none'),
+      text_checks_status: textChecksStatus,
+      review_status: reviewStatus,
+      approval_eligible: approvalEligible,
+      passport_eligible: passportEligible,
+      asset_filename: draft.asset_filename,
+      original_filename: draft.original_filename,
+      detected_mime_type: draft.detected_mime_type,
+      image_preview_url: draft.image_preview_url,
+      brand_disclaimer: draft.brand_disclaimer,
+      is_visual_only: draft.is_visual_only || false,
+      visual_override_reason: draft.visual_override_reason,
+      decision_limitations: draft.decision_limitations,
+      evidence_sources: draft.evidence_sources,
+      suggestions_applied_count: draft.suggestions_applied_count,
+      is_demo_seed: draft.is_demo_seed || false,
     };
 
     // Prepend to queue so it appears at top
     this.queue = [newItem, ...this.queue.filter(q => q.draftId !== draftId)];
     this.persist();
     return newItem;
+  }
+
+  /**
+   * Update manual copy for a draft whose OCR failed, and run compliance checks.
+   */
+  public updateManualCopy(draftId: string, manualCopy: string): ReviewQueueItem | null {
+    this.initStorage();
+    const item = this.queue.find(q => q.draftId === draftId || q.id === draftId);
+    if (!item) return null;
+
+    const lower = manualCopy.toLowerCase();
+    const findings: FindingSummaryItem[] = [];
+
+    // Evaluate basic brand rules on verified manual copy
+    if (lower.includes('customer') || lower.includes('customers')) {
+      findings.push({
+        policy_card_id: 'pol_term_001',
+        policy_version: '1.0',
+        category: 'terminology',
+        severity: 'high',
+        matched_text: 'customers',
+        source_quote: 'The brand prohibits the term Customers and requires the term Members',
+        explanation: 'Disallowed addressing term "customers" detected. Brand guidelines strictly require "Members".',
+        suggested_fix: 'Replace "customers" with "Members"',
+      });
+    }
+
+    if (lower.includes('summer discount')) {
+      findings.push({
+        policy_card_id: 'pol_offer_002',
+        policy_version: '1.0',
+        category: 'expired_offer',
+        severity: 'high',
+        matched_text: 'Summer Discount',
+        source_quote: 'Summer Discount promotion is valid until 2026-06-30 across all digital channels.',
+        explanation: 'Promotion "Summer Discount" expired on 2026-06-30.',
+        suggested_fix: 'Replace expired "Summer Discount" with active promotional code or standard pricing.',
+      });
+    }
+
+    const blockersCount = findings.filter(f => f.severity === 'high').length;
+    const isEligible = blockersCount === 0;
+
+    const updated: ReviewQueueItem = {
+      ...item,
+      content: manualCopy,
+      ocr_text: manualCopy,
+      ocr_status: 'completed',
+      text_checks_status: isEligible ? 'checked_no_findings' : 'findings_flagged',
+      review_status: 'ready_for_review',
+      blockersCount,
+      warningsCount: findings.filter(f => f.severity !== 'high').length,
+      findings,
+      approval_eligible: isEligible,
+      passport_eligible: isEligible,
+      is_visual_only: false,
+      decision_limitations: undefined,
+    };
+
+    this.queue = this.queue.map(q => (q.id === item.id ? updated : q));
+    this.persist();
+    return updated;
   }
 
   /**
@@ -439,7 +433,9 @@ class ReviewClient {
     userId: string = 'rev_101',
     userName: string = 'Compliance Officer Sarah'
   ): Promise<{ success: boolean; data?: ReviewResponse; error?: string; status?: number }> {
-    // 1. Role enforcement check
+    this.initStorage();
+
+    // 1. Role enforcement check (AT-018)
     if (role === 'creator') {
       return {
         success: false,
@@ -456,7 +452,44 @@ class ReviewClient {
       };
     }
 
-    // 2. Attempt call to FastAPI backend
+    const item = this.queue.find(q => q.draftId === payload.draft_id || q.id === payload.draft_id);
+
+    // 2. Strict OCR failure & unreadable copy guardrail
+    if (payload.decision === 'approved') {
+      const isVisualOnlyApproval = payload.approval_type === 'visual_only' || item?.is_visual_only;
+
+      if (!isVisualOnlyApproval) {
+        // Standard approval requires readable copy and completed text checks
+        if (item && (!item.approval_eligible || item.ocr_status === 'failed' || item.text_checks_status === 'not_run')) {
+          return {
+            success: false,
+            status: 422,
+            error: 'Approval Blocked: Text extraction failed or readable text was not verified. Manual copy or explicit visual-only review exception is required.',
+          };
+        }
+      } else {
+        // Visual-only approval requires a documented justification reason
+        const reason = (payload.visual_override_reason || payload.comment || '').trim();
+        if (!reason) {
+          return {
+            success: false,
+            status: 422,
+            error: 'Reviewer Reason Required: Documented justification is required to accept visual-only review without readable copy.',
+          };
+        }
+      }
+
+      // Blocker gate check (AT-010)
+      if (item && item.blockersCount > 0) {
+        return {
+          success: false,
+          status: 422,
+          error: 'Governance Violation: Cannot approve draft with active blocker findings. Resolve all blocker citations in the Scan Workspace first.',
+        };
+      }
+    }
+
+    // 3. Attempt call to FastAPI backend
     try {
       const response = await fetch(`${API_BASE_URL}/api/reviews`, {
         method: 'POST',
@@ -470,18 +503,18 @@ class ReviewClient {
           draft_id: payload.draft_id,
           scan_id: payload.scan_id,
           decision: payload.decision,
-          comment: payload.comment || 'Approved for publication across digital channels.',
+          comment: payload.comment || (payload.decision === 'approved' ? 'Approved for publication across digital channels.' : 'Rejected.'),
+          approval_type: payload.approval_type,
+          visual_override_reason: payload.visual_override_reason,
         }),
       });
 
       if (response.ok) {
         const liveData: ReviewResponse = await response.json();
-        // Update local item as well
         this.updateLocalItemWithDecision(payload.draft_id, payload.decision, liveData.passport_id, liveData.sha256, payload.comment);
         return { success: true, data: liveData, status: 201 };
       }
 
-      // If backend returned 403 or 409 or 400
       if (response.status === 403) {
         const errJson = await response.json().catch(() => ({}));
         return {
@@ -500,27 +533,58 @@ class ReviewClient {
         };
       }
     } catch {
-      // Backend offline: proceed with verified client-side cryptographic fallback
+      // Backend offline: proceed with verified client-side cryptographic minting
     }
 
-    // 3. Fallback: Deterministic Cryptographic Minting
-    const item = this.queue.find(q => q.draftId === payload.draft_id || q.id === payload.draft_id);
-    const content = item?.content || 'Our Members can access standard pricing today!';
-    const draftTitle = item?.title || 'Summer Campaign';
+    // 4. Fallback: Deterministic Cryptographic Minting
+    const isVisualOnly = payload.approval_type === 'visual_only' || item?.is_visual_only;
+    const content = isVisualOnly
+      ? `[Visual Review Asset: ${item?.original_filename || item?.asset_filename || 'Marketing Graphic'}] — Readable copy not extracted. Visual brand identity verified.`
+      : (item?.content || 'Our Members can access standard pricing today!');
+    const draftTitle = item?.title || 'Marketing Asset Review';
 
     let passportId: string | undefined = undefined;
     let sha256Hash = '';
+    const decisionLimitations = isVisualOnly
+      ? 'Visual review only. Text and claim checks were not completed because readable copy was not available.'
+      : null;
 
     if (payload.decision === 'approved') {
       passportId = `pass_${Date.now().toString(16).slice(-6)}_${Math.random().toString(16).slice(2, 6)}`;
-      
+
+      const evidenceUsed = isVisualOnly
+        ? [
+            { name: 'Primary Logo & Asset Guide', version: 'v3.2', type: 'Visual Asset', authority: 'Global Design System' },
+            { name: 'Brand Visual Identity Standard', version: 'v2.0', type: 'Design System', authority: 'Brand Governance' },
+          ]
+        : (item?.evidence_sources && item.evidence_sources.length > 0
+            ? item.evidence_sources
+            : [
+                { name: 'Promotional Claims Policy', version: 'v2.1', type: 'Policy Standard', authority: 'Legal & Regulatory' },
+                { name: 'Approved Terminology Standard', version: 'v1.4', type: 'Brand Guideline', authority: 'Brand Voice Guidelines' },
+              ]);
+
       const snapshot: Record<string, any> = {
-        comment: payload.comment || 'Approved for publication across digital channels.',
-        decision: 'approved',
+        comment: payload.comment || (isVisualOnly ? (payload.visual_override_reason || 'Visual-only review accepted.') : 'Approved for publication across digital channels.'),
+        decision: isVisualOnly ? 'approved_with_override' : 'approved',
+        approval_type: isVisualOnly ? 'visual_only' : 'standard',
+        text_review_status: isVisualOnly ? 'not_completed' : 'completed',
+        ocr_status: item?.ocr_status || (isVisualOnly ? 'failed' : 'completed'),
+        ocr_confidence: item?.ocr_confidence ?? (isVisualOnly ? null : 0.94),
+        decision_limitations: decisionLimitations,
         draft_content: content,
         draft_id: payload.draft_id,
         draft_title: draftTitle,
+        asset_filename: item?.asset_filename || item?.original_filename || null,
+        detected_mime_type: item?.detected_mime_type || null,
+        brand_disclaimer: item?.brand_disclaimer || null,
         findings_summary: item?.findings || [],
+        evidence_used: evidenceUsed,
+        review_stats: {
+          total_findings: item?.findings?.length || 0,
+          suggestions_applied: item?.suggestions_applied_count || 0,
+          approved_with_override: isVisualOnly ? 1 : 0,
+        },
         issued_at: new Date().toISOString(),
         policy_versions_applied: [
           { policy_card_id: 'pol_term_001', policy_version: '1.0' },
@@ -529,8 +593,9 @@ class ReviewClient {
         review_id: `rev_${Date.now()}`,
         reviewer_id: userId,
         reviewer_name: userName,
+        reviewer_role: 'Senior Compliance Officer',
         scan_id: payload.scan_id,
-        total_findings: item?.findings.length || 0,
+        is_demo_seed: false,
       };
 
       sha256Hash = await computeCanonicalSha256(snapshot);
@@ -562,6 +627,8 @@ class ReviewClient {
       passport_id: passportId,
       sha256: sha256Hash,
       created_at: new Date().toISOString(),
+      approval_type: isVisualOnly ? 'visual_only' : 'standard',
+      decision_limitations: decisionLimitations || undefined,
     };
 
     return { success: true, data: fallbackResponse, status: 201 };
@@ -607,40 +674,8 @@ class ReviewClient {
     }
 
     // 2. Return from local cache with real-time hash verification
-    let record = this.passports[passportId];
+    const record = this.passports[passportId];
     if (!record) {
-      if (SEED_DEFAULT_PASSPORTS[passportId]) {
-        record = { ...SEED_DEFAULT_PASSPORTS[passportId] };
-        record.passport_hash = await computeCanonicalSha256(record.metadata_snapshot);
-        record.hash_verified = true;
-        this.passports[passportId] = record;
-        this.persist();
-        return record;
-      }
-
-      // Seed a realistic default passport if requested id matches demo
-      if (passportId.startsWith('pass_')) {
-        const seed = SEED_DEFAULT_PASSPORTS['pass_demo_verified_001'];
-        const mockSnapshot: Record<string, any> = {
-          ...seed.metadata_snapshot,
-          draft_id: `d_${passportId}`,
-        };
-        const computed = await computeCanonicalSha256(mockSnapshot);
-        const seeded: PassportRecord = {
-          id: passportId,
-          draft_id: mockSnapshot.draft_id,
-          scan_id: `s_${passportId}`,
-          review_id: `rev_${passportId}`,
-          passport_hash: computed,
-          status: 'valid',
-          metadata_snapshot: mockSnapshot,
-          hash_verified: true,
-          created_at: mockSnapshot.issued_at || new Date().toISOString(),
-        };
-        this.passports[passportId] = seeded;
-        this.persist();
-        return seeded;
-      }
       return null;
     }
 

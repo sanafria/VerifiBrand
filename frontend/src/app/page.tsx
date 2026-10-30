@@ -7,6 +7,7 @@ import {
   FileText, AlertTriangle, Eye, Check, Clock, UserCheck,
   Sparkles, History, BarChart2, Lock, HelpCircle, RefreshCw
 } from 'lucide-react';
+import CrystalizedBall from '@/components/ui/CrystalizedBall';
 import styles from './page.module.css';
 
 export default function HomePage() {
@@ -16,6 +17,25 @@ export default function HomePage() {
     <div className={styles.pageWrapper}>
       {/* ── Section 1: Hero ── */}
       <section className={`${styles.container} ${styles.heroSection}`}>
+        {/* Crystalized Ball Background */}
+        <div className={styles.heroBallWrapper}>
+          <CrystalizedBall
+            preset="solar"
+            color="#FFD36E"
+            size={0.7}
+            crackle={0.7}
+            fill={0.55}
+            interactive
+            hoverStrength={0.7}
+            flares={1}
+            glow={1.1}
+            sparks={0.5}
+            motion="orbit"
+            sway={0.7}
+            haze={0.8}
+          />
+        </div>
+
         <div className={styles.heroContent}>
           <div className={styles.heroTrustLine}>
             <Shield size={16} />

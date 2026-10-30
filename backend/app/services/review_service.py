@@ -124,6 +124,19 @@ async def submit_review_decision(
     )
 
     passport_id: Optional[UUID] = None
+    passport_hash: Optional[str] = None
+    approval_type = payload.approval_type or "standard"
+    decision_limitations: Optional[str] = None
+
+    if approval_type == "visual_only":
+        if not payload.visual_override_reason or not payload.visual_override_reason.strip():
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="A documented visual_override_reason is required for visual-only review approvals.",
+            )
+        decision_limitations = (
+            f"Visual review only. Textual and claim review not completed: {payload.visual_override_reason.strip()}"
+        )
 
     # 7. If approved: assemble immutable snapshot, compute hash, and issue Content Passport
     if payload.decision == ReviewDecision.APPROVED:
@@ -169,6 +182,10 @@ async def submit_review_decision(
             "reviewer_id": reviewer_id,
             "reviewer_name": reviewer_name,
             "decision": "approved",
+            "approval_type": approval_type,
+            "visual_override_reason": payload.visual_override_reason,
+            "decision_limitations": decision_limitations,
+            "text_review_status": "not_completed" if approval_type == "visual_only" else "completed",
             "comment": payload.comment or "",
             "policy_versions_applied": policy_versions_applied,
             "findings_summary": findings_summary,
@@ -207,6 +224,9 @@ async def submit_review_decision(
         decision=payload.decision,
         comment=payload.comment or "",
         passport_id=passport_id,
+        sha256=passport_hash,
+        approval_type=approval_type,
+        decision_limitations=decision_limitations,
         created_at=created_at,
     )
 

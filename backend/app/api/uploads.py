@@ -48,7 +48,7 @@ _CORRUPT_STRING_PREFIXES = ("JFIF", "PNG", "PDF", "Exif", "GIF8", "WEBP", "%PDF"
 
 
 def is_corrupted_ocr_text(text: str) -> tuple[bool, str]:
-    """Validate extracted text against raw binary decoding artifacts."""
+    """Validate extracted text against raw binary decoding artifacts, replacement characters, and corrupted tokens."""
     if not text:
         return False, ""
 
@@ -60,20 +60,48 @@ def is_corrupted_ocr_text(text: str) -> tuple[bool, str]:
         if prefix and (stripped.startswith(prefix) or stripped[:32].find(prefix) != -1):
             return True, f"Binary header signature '{prefix}' detected in text"
 
-    replacement_count = text.count("\ufffd")
-    replacement_ratio = replacement_count / max(len(text), 1)
-    if replacement_ratio > 0.01:
-        return True, f"Replacement character ratio ({replacement_ratio:.2%}) exceeds 1%"
+    # Any Unicode replacement character U+FFFD signifies decode failure
+    if "\ufffd" in text:
+        return True, "Replacement character (\ufffd) detected in extracted text"
 
     readable_chars = re.findall(r"[A-Za-z0-9\s.,!?'\"()\-/%:;@&]", text)
     readable_ratio = len(readable_chars) / max(len(text), 1)
-    if len(text) > 20 and readable_ratio < 0.65:
-        return True, f"Readable character ratio ({readable_ratio:.2%}) is below 65%"
+    if len(text) > 20 and readable_ratio < 0.70:
+        return True, f"Readable character ratio ({readable_ratio:.2%}) is below 70%"
+
+    if re.search(r"WZNO\s*=\s*", text, re.IGNORECASE) or re.search(r"\?{3,}", text):
+        return True, "Corrupted OCR token artifacts detected in text"
 
     if len(text) > 40000:
         return True, "Abnormally large text length for marketing asset (>40,000 characters)"
 
     return False, ""
+
+
+def detect_magic_bytes(data: bytes) -> tuple[str, Optional[str]]:
+    """Detect MIME type and extension from magic bytes."""
+    if len(data) >= 3 and data[:3] == b"\xff\xd8\xff":
+        return "image/jpeg", ".jpg"
+    if len(data) >= 8 and data[:8] == b"\x89PNG\r\n\x1a\n":
+        return "image/png", ".png"
+    if len(data) >= 4 and data[:4] == b"GIF8":
+        return "image/gif", ".gif"
+    if len(data) >= 12 and data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+        return "image/webp", ".webp"
+    if len(data) >= 12 and data[4:8] == b"ftyp" and data[8:12] in (b"avif", b"avis", b"mif1"):
+        return "image/avif", ".avif"
+    if len(data) >= 4 and data[:4] == b"%PDF":
+        return "application/pdf", ".pdf"
+    return "application/octet-stream", None
+
+
+def clean_double_extension(filename: str, detected_mime: str) -> str:
+    lower = filename.lower()
+    if detected_mime == "image/jpeg" and (lower.endswith(".jpg.avif") or lower.endswith(".jpeg.avif")):
+        return filename[:-5]
+    if detected_mime == "image/png" and lower.endswith(".png.avif"):
+        return filename[:-5]
+    return filename
 
 
 class ExtractionSummary(BaseModel):
@@ -100,16 +128,30 @@ class UploadScanResponse(BaseModel):
 class OcrResponse(BaseModel):
     success: bool
     filename: Optional[str] = None
+    original_filename: Optional[str] = None
+    cleaned_filename: Optional[str] = None
     mime_type: Optional[str] = None
+    detected_mime_type: Optional[str] = None
     extracted_text: Optional[str] = None
     confidence: Optional[float] = None
     word_count: Optional[int] = None
     error_code: Optional[str] = None
     message: Optional[str] = None
-    visual_checks_status: Optional[str] = "pending"
+    visual_checks_status: Optional[str] = "ready"
     visual_warnings: List[Dict[str, Any]] = []
     logo_matches: List[Dict[str, Any]] = []
     is_sample: Optional[bool] = False
+    asset_status: Optional[str] = "uploaded"
+    preview_status: Optional[str] = "ready"
+    ocr_status: Optional[str] = "completed"
+    ocr_text: Optional[str] = None
+    ocr_confidence: Optional[float] = None
+    text_checks_status: Optional[str] = "completed"
+    review_status: Optional[str] = "ready_for_review"
+    approval_eligible: Optional[bool] = True
+    passport_eligible: Optional[bool] = True
+    brand_disclaimer: Optional[str] = None
+
 
 
 async def _save_upload(upload: UploadFile) -> Path:
@@ -205,7 +247,15 @@ async def extract_ocr_endpoint(
         )
 
     visual = None
+    sig_bytes = b""
     try:
+        sig_bytes = tmp_path.read_bytes()[:32]
+        detected_mime, _ = detect_magic_bytes(sig_bytes)
+        final_mime = detected_mime if detected_mime != "application/octet-stream" else (raw_content_type or "image/jpeg")
+        cleaned_name = clean_double_extension(original_name, final_mime)
+        has_comm = "samsung" in original_name.lower() or "galaxy" in original_name.lower()
+        brand_disclaimer = "Sample public-reference asset · Not affiliated with Samsung" if has_comm else None
+
         result = await asyncio.to_thread(extract_content, str(tmp_path), file.content_type)
         if ext in _VISUAL_EXTS:
             try:
@@ -230,32 +280,72 @@ async def extract_ocr_endpoint(
             return OcrResponse(
                 success=True,
                 filename=original_name,
+                original_filename=original_name,
+                cleaned_filename=cleaned_name,
                 mime_type="image/jpeg",
+                detected_mime_type=final_mime,
                 extracted_text="Winter travel packages are available for members through December 31.",
                 confidence=0.92,
                 word_count=11,
                 visual_checks_status="ready",
                 is_sample=True,
+                asset_status="uploaded",
+                preview_status="ready",
+                ocr_status="completed",
+                ocr_text="Winter travel packages are available for members through December 31.",
+                ocr_confidence=0.92,
+                text_checks_status="completed",
+                review_status="ready_for_review",
+                approval_eligible=True,
+                passport_eligible=True,
+                brand_disclaimer=brand_disclaimer,
             )
         if "clear_offer" in lower_name or "spring" in lower_name or "sale" in lower_name:
             return OcrResponse(
                 success=True,
                 filename=original_name,
+                original_filename=original_name,
+                cleaned_filename=cleaned_name,
                 mime_type="image/png",
+                detected_mime_type=final_mime,
                 extracted_text="SPRING SALE\nGet 20% OFF all Members plans\nValid until 31 March 2026\nUse code SPRING20",
                 confidence=0.95,
                 word_count=16,
                 visual_checks_status="ready",
                 is_sample=True,
+                asset_status="uploaded",
+                preview_status="ready",
+                ocr_status="completed",
+                ocr_text="SPRING SALE\nGet 20% OFF all Members plans\nValid until 31 March 2026\nUse code SPRING20",
+                ocr_confidence=0.95,
+                text_checks_status="completed",
+                review_status="ready_for_review",
+                approval_eligible=True,
+                passport_eligible=True,
+                brand_disclaimer=brand_disclaimer,
             )
 
     if not result.get("success"):
         return OcrResponse(
             success=False,
             error_code="OCR_EXTRACTION_FAILED",
-            message="We could not read text from this image.",
+            message="We could not read reliable text from this image. Text-based policy checks have not been completed.",
             filename=original_name,
-            mime_type=result.get("content_type", raw_content_type),
+            original_filename=original_name,
+            cleaned_filename=cleaned_name,
+            mime_type=result.get("content_type", final_mime),
+            detected_mime_type=final_mime,
+            asset_status="uploaded",
+            preview_status="ready",
+            ocr_status="failed",
+            ocr_text=None,
+            ocr_confidence=None,
+            visual_checks_status="ready" if visual else "pending",
+            text_checks_status="not_run",
+            review_status="manual_input_required",
+            approval_eligible=False,
+            passport_eligible=False,
+            brand_disclaimer=brand_disclaimer,
         )
 
     text = (result.get("extracted_text") or "").strip()
@@ -263,12 +353,25 @@ async def extract_ocr_endpoint(
         return OcrResponse(
             success=False,
             error_code="OCR_EXTRACTION_FAILED",
-            message="We could not read text from this image.",
+            message="We could not read reliable text from this image. Text-based policy checks have not been completed.",
             filename=original_name,
-            mime_type=result.get("content_type", raw_content_type),
+            original_filename=original_name,
+            cleaned_filename=cleaned_name,
+            mime_type=result.get("content_type", final_mime),
+            detected_mime_type=final_mime,
             word_count=0,
             visual_checks_status="ready" if visual else "pending",
             visual_warnings=result.get("visual_warnings", []),
+            asset_status="uploaded",
+            preview_status="ready",
+            ocr_status="failed",
+            ocr_text=None,
+            ocr_confidence=None,
+            text_checks_status="not_run",
+            review_status="manual_input_required",
+            approval_eligible=False,
+            passport_eligible=False,
+            brand_disclaimer=brand_disclaimer,
         )
 
     # Corrupted text protection check
@@ -278,9 +381,23 @@ async def extract_ocr_endpoint(
         return OcrResponse(
             success=False,
             error_code="OCR_EXTRACTION_FAILED",
-            message="We could not read text from this image.",
+            message=f"We could not read reliable text from this image ({reason}). Text-based policy checks have not been completed.",
             filename=original_name,
-            mime_type=result.get("content_type", raw_content_type),
+            original_filename=original_name,
+            cleaned_filename=cleaned_name,
+            mime_type=result.get("content_type", final_mime),
+            detected_mime_type=final_mime,
+            asset_status="uploaded",
+            preview_status="ready",
+            ocr_status="failed",
+            ocr_text=None,
+            ocr_confidence=None,
+            visual_checks_status="ready" if visual else "pending",
+            text_checks_status="not_run",
+            review_status="manual_input_required",
+            approval_eligible=False,
+            passport_eligible=False,
+            brand_disclaimer=brand_disclaimer,
         )
 
     raw_conf = result.get("ocr", {}).get("mean_confidence") or 92.0
@@ -289,7 +406,10 @@ async def extract_ocr_endpoint(
     return OcrResponse(
         success=True,
         filename=original_name,
-        mime_type=result.get("content_type", raw_content_type or "image/jpeg"),
+        original_filename=original_name,
+        cleaned_filename=cleaned_name,
+        mime_type=result.get("content_type", final_mime),
+        detected_mime_type=final_mime,
         extracted_text=text,
         confidence=conf,
         word_count=len(text.split()),
@@ -297,6 +417,16 @@ async def extract_ocr_endpoint(
         visual_warnings=result.get("visual_warnings", []),
         logo_matches=result.get("logo_matches", []),
         is_sample=False,
+        asset_status="uploaded",
+        preview_status="ready",
+        ocr_status="completed",
+        ocr_text=text,
+        ocr_confidence=conf,
+        text_checks_status="completed",
+        review_status="ready_for_review",
+        approval_eligible=True,
+        passport_eligible=True,
+        brand_disclaimer=brand_disclaimer,
     )
 
 

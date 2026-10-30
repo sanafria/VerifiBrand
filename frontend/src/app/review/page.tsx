@@ -7,7 +7,7 @@ import {
   Shield, CheckCircle2, XCircle, AlertTriangle,
   Lock, ArrowRight, Award, MessageSquare, UserCheck,
   FileText, Clock, RefreshCw, Zap, Check, Eye, HelpCircle,
-  Hash, ExternalLink, ChevronRight, AlertOctagon
+  Hash, ExternalLink, ChevronRight, AlertOctagon, Edit3, Upload, X
 } from 'lucide-react';
 import {
   reviewClient,
@@ -38,6 +38,12 @@ function ReviewGateContent() {
   const [backendConnected, setBackendConnected] = useState<boolean | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [showDemoControls, setShowDemoControls] = useState(false);
+
+  // Manual Copy Modal & Visual Override State
+  const [showManualCopyModal, setShowManualCopyModal] = useState(false);
+  const [manualCopyInput, setManualCopyInput] = useState('');
+  const [showVisualOverrideModal, setShowVisualOverrideModal] = useState(false);
+  const [visualReasonInput, setVisualReasonInput] = useState('');
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -74,6 +80,29 @@ function ReviewGateContent() {
     return item.status === filterStatus;
   });
 
+  // Strict state checks
+  const isOcrBlocked = Boolean(
+    selectedItem && (
+      selectedItem.ocr_status === 'failed' ||
+      selectedItem.ocr_status === 'corrupted' ||
+      (selectedItem.text_checks_status === 'not_run' && !selectedItem.content)
+    )
+  );
+
+  const isVisualOnly = Boolean(
+    selectedItem && (
+      selectedItem.is_visual_only ||
+      selectedItem.review_status === 'visual_only'
+    )
+  );
+
+  const isCleanChecked = Boolean(
+    selectedItem && (
+      selectedItem.text_checks_status === 'checked_no_findings' ||
+      (!isOcrBlocked && !isVisualOnly && selectedItem.blockersCount === 0 && selectedItem.findings?.length === 0 && !!selectedItem.content)
+    )
+  );
+
   // Role switch handler
   const handleRoleChange = (newRole: UserRole) => {
     setUserRole(newRole);
@@ -96,7 +125,7 @@ function ReviewGateContent() {
 
   // Preset 1: Quick-Load Act 4 Demo Snippet B (Compliant)
   const handleLoadAct4Preset = () => {
-    const match = queue.find(q => q.title.includes('Snippet B') || q.blockersCount === 0);
+    const match = queue.find(q => q.title.includes('Snippet B') || (q.blockersCount === 0 && q.approval_eligible));
     if (match) {
       setSelectedId(match.id);
     }
@@ -121,11 +150,43 @@ function ReviewGateContent() {
     showToast('Loaded AT-018 Governance Test: Creator Role Active');
   };
 
+  // Submit Manual Copy
+  const handleSaveManualCopy = () => {
+    if (!selectedItem || !manualCopyInput.trim()) {
+      showToast('Please enter campaign copy before saving.');
+      return;
+    }
+
+    const updated = reviewClient.updateManualCopy(selectedItem.draftId, manualCopyInput.trim());
+    if (updated) {
+      setQueue(reviewClient.getQueue());
+      setShowManualCopyModal(false);
+      setManualCopyInput('');
+      setErrorMessage(null);
+      setErrorStatus(null);
+      showToast('Manual copy saved & scanned against active brand policies.');
+    }
+  };
+
   // Handle Review Approval (Calls POST /api/reviews)
   const handleApprove = async () => {
     if (!selectedItem) return;
     setErrorMessage(null);
     setErrorStatus(null);
+
+    // Rule: Block approval if OCR failed and no manual copy provided
+    if (isOcrBlocked && !isVisualOnly) {
+      setErrorMessage('Review blocked: Readable text required. Text findings have not been evaluated. Enter copy manually or request a clearer upload before approving.');
+      setErrorStatus(422);
+      return;
+    }
+
+    // Rule: Visual-only approval requires documented justification reason
+    if (isVisualOnly) {
+      setShowVisualOverrideModal(true);
+      return;
+    }
+
     setSubmitting(true);
 
     try {
@@ -165,12 +226,60 @@ function ReviewGateContent() {
     }
   };
 
+  // Handle Visual-Only Reviewer Approval with Justification
+  const handleConfirmVisualApproval = async () => {
+    if (!selectedItem) return;
+    if (!visualReasonInput.trim()) {
+      setErrorMessage('Reviewer justification is required to record a visual-only approval.');
+      setErrorStatus(422);
+      return;
+    }
+
+    setSubmitting(true);
+    setErrorMessage(null);
+    setErrorStatus(null);
+
+    try {
+      const result = await reviewClient.submitReview(
+        {
+          draft_id: selectedItem.draftId,
+          scan_id: selectedItem.scanId,
+          decision: 'approved',
+          comment: visualReasonInput.trim(),
+          approval_type: 'visual_only',
+          visual_override_reason: visualReasonInput.trim(),
+        },
+        userRole,
+        reviewerId,
+        reviewerName
+      );
+
+      if (result.success && result.data) {
+        setSuccessResponse(result.data);
+        setQueue(reviewClient.getQueue());
+        setShowVisualOverrideModal(false);
+        setVisualReasonInput('');
+        showToast('Visual-only Content Passport Minted (Documented Limitation Recorded)');
+      } else {
+        setErrorMessage(result.error || 'Failed to record visual approval.');
+        setErrorStatus(result.status || 400);
+      }
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Error recording visual approval.');
+      setErrorStatus(500);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   // Handle Review Rejection
-  const handleReject = async () => {
+  const handleReject = async (customReason?: string) => {
     if (!selectedItem) return;
     setErrorMessage(null);
     setErrorStatus(null);
     setSubmitting(true);
+
+    const commentToLog = customReason || reviewComment || 'Draft rejected. Revise prohibited terminology and expired promotions before resubmitting.';
 
     try {
       const result = await reviewClient.submitReview(
@@ -178,7 +287,7 @@ function ReviewGateContent() {
           draft_id: selectedItem.draftId,
           scan_id: selectedItem.scanId,
           decision: 'rejected',
-          comment: reviewComment || 'Draft rejected. Revise prohibited terminology and expired promotions before resubmitting.',
+          comment: commentToLog,
         },
         userRole,
         reviewerId,
@@ -188,7 +297,7 @@ function ReviewGateContent() {
       if (result.success && result.data) {
         setQueue(reviewClient.getQueue());
         setSuccessResponse(null);
-        showToast('Draft marked as Rejected. Feedback logged for creator.');
+        showToast('Draft marked as Rejected. Action requested from creator.');
       } else {
         setErrorMessage(result.error || 'Failed to submit rejection.');
         setErrorStatus(result.status || 400);
@@ -208,6 +317,229 @@ function ReviewGateContent() {
         <div className={styles.toast}>
           <Zap size={15} color="var(--brand-gold)" />
           <span>{toastMessage}</span>
+        </div>
+      )}
+
+      {/* Manual Copy Entry Modal */}
+      {showManualCopyModal && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(0,0,0,0.75)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+          padding: 20
+        }}>
+          <div style={{
+            background: 'var(--bg-card)',
+            border: '1px solid var(--border-light)',
+            borderRadius: 12,
+            padding: 24,
+            maxWidth: 580,
+            width: '100%',
+            boxShadow: '0 20px 40px rgba(0,0,0,0.5)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 16
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Edit3 size={18} color="var(--brand-navy)" />
+                <span style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+                  Enter Campaign Copy Manually
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowManualCopyModal(false)}
+                style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', lineHeight: 1.5, margin: 0 }}>
+              OCR could not extract readable copy from the asset. Enter the verified campaign copy below to run text-dependent compliance checks and clear this draft for approval.
+            </p>
+
+            <textarea
+              value={manualCopyInput}
+              onChange={e => setManualCopyInput(e.target.value)}
+              placeholder="Paste or type verified marketing copy here..."
+              rows={5}
+              style={{
+                width: '100%',
+                padding: '12px 14px',
+                background: '#FFFFFF',
+                border: '1px solid var(--border-light)',
+                borderRadius: 8,
+                fontSize: '0.88rem',
+                fontFamily: 'inherit',
+                color: 'var(--text-primary)',
+                outline: 'none',
+              }}
+            />
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+              <button
+                type="button"
+                onClick={() => setShowManualCopyModal(false)}
+                style={{
+                  background: 'transparent',
+                  border: '1px solid var(--border-subtle)',
+                  padding: '8px 16px',
+                  borderRadius: 6,
+                  fontSize: '0.82rem',
+                  fontWeight: 600,
+                  color: 'var(--text-secondary)',
+                  cursor: 'pointer'
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveManualCopy}
+                style={{
+                  background: 'var(--brand-forest)',
+                  border: 'none',
+                  padding: '8px 18px',
+                  borderRadius: 6,
+                  fontSize: '0.82rem',
+                  fontWeight: 700,
+                  color: '#FFFFFF',
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6
+                }}
+              >
+                <Check size={14} />
+                <span>Save Copy &amp; Run Checks</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Visual-Only Override Reason Modal */}
+      {showVisualOverrideModal && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(0,0,0,0.75)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+          padding: 20
+        }}>
+          <div style={{
+            background: 'var(--bg-card)',
+            border: '1px solid var(--border-light)',
+            borderRadius: 12,
+            padding: 24,
+            maxWidth: 580,
+            width: '100%',
+            boxShadow: '0 20px 40px rgba(0,0,0,0.5)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 16
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Eye size={18} color="#d97706" />
+                <span style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+                  Accept Visual-Only Review
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowVisualOverrideModal(false)}
+                style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div style={{
+              background: 'rgba(245, 158, 11, 0.08)',
+              border: '1px solid rgba(245, 158, 11, 0.3)',
+              borderRadius: 6,
+              padding: '10px 14px',
+              fontSize: '0.78rem',
+              color: 'var(--text-secondary)',
+              lineHeight: 1.5
+            }}>
+              <strong>Governance Rule:</strong> The Content Passport will explicitly record that textual review was NOT completed due to unreadable OCR. A mandatory reviewer reason must be provided for audit compliance.
+            </div>
+
+            <div>
+              <label style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-primary)', display: 'block', marginBottom: 6 }}>
+                Reviewer Documented Justification (Required):
+              </label>
+              <textarea
+                value={visualReasonInput}
+                onChange={e => setVisualReasonInput(e.target.value)}
+                placeholder="E.g., Approved visual logo clear space and brand palette only. Campaign copy cleared under separate legal clearance ticket #842."
+                rows={4}
+                style={{
+                  width: '100%',
+                  padding: '12px 14px',
+                  background: '#FFFFFF',
+                  border: '1px solid var(--border-light)',
+                  borderRadius: 8,
+                  fontSize: '0.86rem',
+                  fontFamily: 'inherit',
+                  color: 'var(--text-primary)',
+                  outline: 'none',
+                }}
+              />
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+              <button
+                type="button"
+                onClick={() => setShowVisualOverrideModal(false)}
+                style={{
+                  background: 'transparent',
+                  border: '1px solid var(--border-subtle)',
+                  padding: '8px 16px',
+                  borderRadius: 6,
+                  fontSize: '0.82rem',
+                  fontWeight: 600,
+                  color: 'var(--text-secondary)',
+                  cursor: 'pointer'
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmVisualApproval}
+                disabled={submitting || !visualReasonInput.trim()}
+                style={{
+                  background: '#d97706',
+                  border: 'none',
+                  padding: '8px 18px',
+                  borderRadius: 6,
+                  fontSize: '0.82rem',
+                  fontWeight: 700,
+                  color: '#FFFFFF',
+                  cursor: (!visualReasonInput.trim() || submitting) ? 'not-allowed' : 'pointer',
+                  opacity: (!visualReasonInput.trim() || submitting) ? 0.5 : 1,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6
+                }}
+              >
+                <CheckCircle2 size={14} />
+                <span>{submitting ? 'Recording Human Sign-off...' : 'Approve with Documented Limitation'}</span>
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -255,7 +587,7 @@ function ReviewGateContent() {
           Check drafts against active brand policies, review evidence citations, and record authorized publication decisions with Content Passports.
         </p>
 
-        {/* Collapsible Presentation & Testing Controls (Collapsible for Judge / Operator) */}
+        {/* Collapsible Presentation & Testing Controls */}
         {showDemoControls && (
           <div style={{
             marginTop: 16,
@@ -388,105 +720,145 @@ function ReviewGateContent() {
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 8 }}>
-            {filteredQueue.map(item => {
-              const isSelected = selectedId === item.id;
-              const hasBlockers = item.blockersCount > 0;
+            {filteredQueue.length === 0 ? (
+              <div style={{ padding: '32px 16px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.82rem', background: 'var(--bg-surface)', borderRadius: 8, border: '1px dashed var(--border-subtle)' }}>
+                <FileText size={24} style={{ opacity: 0.4, display: 'block', margin: '0 auto 8px' }} />
+                No drafts in queue.
+              </div>
+            ) : (
+              filteredQueue.map(item => {
+                const isSelected = selectedId === item.id;
+                const hasBlockers = item.blockersCount > 0;
+                const itemIsOcrBlocked = item.ocr_status === 'failed' || item.ocr_status === 'corrupted' || (item.text_checks_status === 'not_run' && !item.content);
+                const itemIsVisualOnly = item.is_visual_only || item.review_status === 'visual_only';
+                const itemIsCleanChecked = item.text_checks_status === 'checked_no_findings' || (!itemIsOcrBlocked && !itemIsVisualOnly && item.blockersCount === 0 && item.findings?.length === 0 && !!item.content);
 
-              return (
-                <div
-                  key={item.id}
-                  className={`${styles.queueItem} ${isSelected ? styles.queueItemActive : ''}`}
-                  onClick={() => {
-                    setSelectedId(item.id);
-                    setErrorMessage(null);
-                    setErrorStatus(null);
-                    setSuccessResponse(item.passportId ? {
-                      id: item.id,
-                      draft_id: item.draftId,
-                      scan_id: item.scanId,
-                      reviewer_id: reviewerId,
-                      reviewer_name: reviewerName,
-                      decision: 'approved',
-                      comment: item.reviewerComment || 'Approved',
-                      passport_id: item.passportId,
-                      sha256: item.sha256,
-                      created_at: item.submittedAt
-                    } : null);
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 6 }}>
-                    <span style={{ fontSize: '0.86rem', fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.3 }}>
-                      {item.title}
-                    </span>
-                    <span style={{
-                      fontSize: '0.68rem',
-                      fontWeight: 800,
-                      textTransform: 'uppercase',
-                      padding: '2px 8px',
-                      borderRadius: 4,
-                      background: item.status === 'approved' ? 'var(--status-approved-bg)' : item.status === 'rejected' ? 'var(--status-blocked-bg)' : 'var(--status-warning-bg)',
-                      color: item.status === 'approved' ? 'var(--status-approved-text)' : item.status === 'rejected' ? 'var(--status-blocked-text)' : 'var(--status-warning-text)',
-                    }}>
-                      {item.status}
-                    </span>
-                  </div>
-
-                  <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <span>{item.author}</span>
-                    <span>•</span>
-                    <span>{item.submittedAt.slice(0, 10)}</span>
-                  </div>
-
-                  <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-                    {hasBlockers ? (
-                      <span style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: 4,
-                        fontSize: '0.7rem',
-                        fontWeight: 700,
-                        color: 'var(--status-blocked-text)',
-                        background: 'var(--status-blocked-bg)',
-                        padding: '2px 6px',
-                        borderRadius: 4,
-                      }}>
-                        <XCircle size={11} /> {item.blockersCount} Blockers
+                return (
+                  <div
+                    key={item.id}
+                    className={`${styles.queueItem} ${isSelected ? styles.queueItemActive : ''}`}
+                    onClick={() => {
+                      setSelectedId(item.id);
+                      setErrorMessage(null);
+                      setErrorStatus(null);
+                      setSuccessResponse(item.passportId ? {
+                        id: item.id,
+                        draft_id: item.draftId,
+                        scan_id: item.scanId,
+                        reviewer_id: reviewerId,
+                        reviewer_name: reviewerName,
+                        decision: 'approved',
+                        comment: item.reviewerComment || 'Approved',
+                        passport_id: item.passportId,
+                        sha256: item.sha256,
+                        created_at: item.submittedAt
+                      } : null);
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 6 }}>
+                      <span style={{ fontSize: '0.86rem', fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.3 }}>
+                        {item.title}
                       </span>
-                    ) : (
                       <span style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: 4,
-                        fontSize: '0.7rem',
-                        fontWeight: 700,
-                        color: 'var(--status-approved-text)',
-                        background: 'var(--status-approved-bg)',
-                        padding: '2px 6px',
+                        fontSize: '0.68rem',
+                        fontWeight: 800,
+                        textTransform: 'uppercase',
+                        padding: '2px 8px',
                         borderRadius: 4,
+                        background: item.status === 'approved' ? 'var(--status-approved-bg)' : item.status === 'rejected' ? 'var(--status-blocked-bg)' : 'var(--status-warning-bg)',
+                        color: item.status === 'approved' ? 'var(--status-approved-text)' : item.status === 'rejected' ? 'var(--status-blocked-text)' : 'var(--status-warning-text)',
                       }}>
-                        <CheckCircle2 size={11} /> 0 Blockers (Eligible)
+                        {item.status}
                       </span>
-                    )}
+                    </div>
 
-                    {item.passportId && (
-                      <span style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: 4,
-                        fontSize: '0.7rem',
-                        fontWeight: 700,
-                        color: 'var(--brand-forest)',
-                        background: 'var(--status-approved-bg)',
-                        padding: '2px 6px',
-                        borderRadius: 4,
-                      }}>
-                        <Award size={11} /> Passport Minted
-                      </span>
-                    )}
+                    <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span>{item.author}</span>
+                      <span>•</span>
+                      <span>{item.submittedAt.slice(0, 10)}</span>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
+                      {itemIsOcrBlocked ? (
+                        <span style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 4,
+                          fontSize: '0.7rem',
+                          fontWeight: 700,
+                          color: '#b91c1c',
+                          background: 'rgba(239, 68, 68, 0.12)',
+                          border: '1px solid rgba(239, 68, 68, 0.25)',
+                          padding: '2px 6px',
+                          borderRadius: 4,
+                        }}>
+                          <AlertTriangle size={11} /> Manual Input Required
+                        </span>
+                      ) : itemIsVisualOnly ? (
+                        <span style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 4,
+                          fontSize: '0.7rem',
+                          fontWeight: 700,
+                          color: '#d97706',
+                          background: 'rgba(245, 158, 11, 0.12)',
+                          border: '1px solid rgba(245, 158, 11, 0.25)',
+                          padding: '2px 6px',
+                          borderRadius: 4,
+                        }}>
+                          <Eye size={11} /> Visual Review Only
+                        </span>
+                      ) : hasBlockers ? (
+                        <span style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 4,
+                          fontSize: '0.7rem',
+                          fontWeight: 700,
+                          color: 'var(--status-blocked-text)',
+                          background: 'var(--status-blocked-bg)',
+                          padding: '2px 6px',
+                          borderRadius: 4,
+                        }}>
+                          <XCircle size={11} /> {item.blockersCount} Blockers
+                        </span>
+                      ) : itemIsCleanChecked ? (
+                        <span style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 4,
+                          fontSize: '0.7rem',
+                          fontWeight: 700,
+                          color: 'var(--status-approved-text)',
+                          background: 'var(--status-approved-bg)',
+                          padding: '2px 6px',
+                          borderRadius: 4,
+                        }}>
+                          <CheckCircle2 size={11} /> Checked — No Findings
+                        </span>
+                      ) : null}
+
+                      {item.passportId && (
+                        <span style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 4,
+                          fontSize: '0.7rem',
+                          fontWeight: 700,
+                          color: 'var(--brand-forest)',
+                          background: 'var(--status-approved-bg)',
+                          padding: '2px 6px',
+                          borderRadius: 4,
+                        }}>
+                          <Award size={11} /> Passport Minted
+                        </span>
+                      )}
+                    </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })
+            )}
           </div>
         </div>
 
@@ -503,59 +875,277 @@ function ReviewGateContent() {
                 </div>
                 <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
                   Draft ID: <code style={{ color: 'var(--brand-navy)', fontWeight: 700 }}>{selectedItem.draftId}</code> • Scan ID: <code>{selectedItem.scanId}</code>
+                  {selectedItem.original_filename && (
+                    <span> • Asset: <strong>{selectedItem.original_filename}</strong></span>
+                  )}
+                  {selectedItem.detected_mime_type && (
+                    <span> • Type: <code>{selectedItem.detected_mime_type}</code></span>
+                  )}
                 </div>
               </div>
 
               <div style={{ textAlign: 'right' }}>
-                <span style={{
-                  fontSize: '0.78rem',
-                  fontWeight: 800,
-                  padding: '6px 12px',
-                  borderRadius: 6,
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 6,
-                  background: selectedItem.blockersCount === 0 ? 'var(--status-approved-bg)' : 'var(--status-blocked-bg)',
-                  color: selectedItem.blockersCount === 0 ? 'var(--status-approved-text)' : 'var(--status-blocked-text)',
-                  border: `1px solid ${selectedItem.blockersCount === 0 ? 'rgba(27, 77, 62, 0.25)' : 'rgba(153, 27, 27, 0.25)'}`
-                }}>
-                  {selectedItem.blockersCount === 0 ? (
-                    <>
-                      <CheckCircle2 size={14} />
-                      <span>Compliant for Approval</span>
-                    </>
-                  ) : (
-                    <>
-                      <AlertTriangle size={14} />
-                      <span>{selectedItem.blockersCount} Blockers Unresolved</span>
-                    </>
-                  )}
-                </span>
+                {isOcrBlocked ? (
+                  <span style={{
+                    fontSize: '0.78rem',
+                    fontWeight: 800,
+                    padding: '6px 12px',
+                    borderRadius: 6,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    background: 'rgba(239, 68, 68, 0.12)',
+                    color: '#b91c1c',
+                    border: '1px solid rgba(239, 68, 68, 0.3)'
+                  }}>
+                    <AlertOctagon size={14} />
+                    <span>Review Blocked — Readable Text Required</span>
+                  </span>
+                ) : isVisualOnly ? (
+                  <span style={{
+                    fontSize: '0.78rem',
+                    fontWeight: 800,
+                    padding: '6px 12px',
+                    borderRadius: 6,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    background: 'rgba(245, 158, 11, 0.12)',
+                    color: '#d97706',
+                    border: '1px solid rgba(245, 158, 11, 0.3)'
+                  }}>
+                    <Eye size={14} />
+                    <span>Visual Review Only (Reason Required)</span>
+                  </span>
+                ) : selectedItem.blockersCount > 0 ? (
+                  <span style={{
+                    fontSize: '0.78rem',
+                    fontWeight: 800,
+                    padding: '6px 12px',
+                    borderRadius: 6,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    background: 'var(--status-blocked-bg)',
+                    color: 'var(--status-blocked-text)',
+                    border: '1px solid rgba(153, 27, 27, 0.25)'
+                  }}>
+                    <AlertTriangle size={14} />
+                    <span>{selectedItem.blockersCount} Blockers Unresolved</span>
+                  </span>
+                ) : (
+                  <span style={{
+                    fontSize: '0.78rem',
+                    fontWeight: 800,
+                    padding: '6px 12px',
+                    borderRadius: 6,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    background: 'var(--status-approved-bg)',
+                    color: 'var(--status-approved-text)',
+                    border: '1px solid rgba(27, 77, 62, 0.25)'
+                  }}>
+                    <CheckCircle2 size={14} />
+                    <span>Checked — No Findings (Eligible)</span>
+                  </span>
+                )}
               </div>
             </div>
 
             {/* Content Preview */}
             <div>
-              <label style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 6, display: 'block' }}>
-                Draft Marketing Copy Under Review:
-              </label>
-              <div className={styles.contentPreview}>
-                &ldquo;{selectedItem.content}&rdquo;
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                <label style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                  Draft Content Under Review:
+                </label>
+                {selectedItem.brand_disclaimer && (
+                  <span style={{
+                    fontSize: '0.72rem',
+                    fontWeight: 600,
+                    color: '#d97706',
+                    background: 'rgba(245, 158, 11, 0.12)',
+                    padding: '2px 8px',
+                    borderRadius: 4
+                  }}>
+                    {selectedItem.brand_disclaimer}
+                  </span>
+                )}
               </div>
+
+              {isOcrBlocked ? (
+                <div style={{
+                  background: 'rgba(239, 68, 68, 0.04)',
+                  border: '1px dashed rgba(239, 68, 68, 0.35)',
+                  borderRadius: 8,
+                  padding: '16px 20px',
+                  fontSize: '0.88rem',
+                  color: 'var(--text-secondary)',
+                  lineHeight: 1.6
+                }}>
+                  <div style={{ color: '#b91c1c', fontWeight: 700, marginBottom: 4 }}>
+                    [No verified campaign copy available]
+                  </div>
+                  <div>
+                    OCR text extraction failed or yielded unreadable binary artifacts for asset &ldquo;{selectedItem.original_filename || selectedItem.title}&rdquo;.
+                    Text-dependent policy checks have not been completed.
+                  </div>
+                </div>
+              ) : (
+                <div className={styles.contentPreview}>
+                  &ldquo;{selectedItem.content}&rdquo;
+                </div>
+              )}
             </div>
 
             {/* Evidence & Findings Audit Section */}
             <div>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
                 <span style={{ fontSize: '0.78rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
-                  Source Policy Evidence ({selectedItem.findings?.length || 0})
+                  Policy Findings &amp; Evidence ({isOcrBlocked ? 0 : (selectedItem.findings?.length || 0)})
                 </span>
                 <span style={{ fontSize: '0.74rem', color: 'var(--brand-navy-light)', fontWeight: 600 }}>
                   Every finding links to a registered source
                 </span>
               </div>
 
-              {selectedItem.findings && selectedItem.findings.length > 0 ? (
+              {/* Exact Screenshot 2 Condition: OCR Failed -> Manual Input Required */}
+              {isOcrBlocked ? (
+                <div style={{
+                  background: 'rgba(239, 68, 68, 0.06)',
+                  border: '1px solid rgba(239, 68, 68, 0.35)',
+                  borderRadius: 8,
+                  padding: '18px 20px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 12,
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+                    <AlertOctagon size={24} color="#dc2626" style={{ flexShrink: 0, marginTop: 2 }} />
+                    <div>
+                      <div style={{ fontWeight: 800, fontSize: '1rem', color: '#b91c1c' }}>
+                        Review blocked — readable text required
+                      </div>
+                      <div style={{ fontSize: '0.84rem', color: 'var(--text-secondary)', marginTop: 4, lineHeight: 1.5 }}>
+                        OCR failed for this asset. No text-based compliance decision has been made.
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={{
+                    background: '#FFFFFF',
+                    border: '1px solid rgba(0, 0, 0, 0.08)',
+                    borderRadius: 6,
+                    padding: '10px 14px',
+                    fontSize: '0.78rem',
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+                    gap: 10,
+                  }}>
+                    <div>Status: <strong style={{ color: '#b91c1c' }}>Manual input required</strong></div>
+                    <div>Text findings: <strong style={{ color: 'var(--text-muted)' }}>Not evaluated</strong></div>
+                    <div>Visual checks: <strong style={{ color: 'var(--brand-forest)' }}>Ready</strong></div>
+                    {selectedItem.original_filename && (
+                      <div>Original file: <strong>{selectedItem.original_filename}</strong></div>
+                    )}
+                    {selectedItem.detected_mime_type && (
+                      <div>Detected type: <strong>{selectedItem.detected_mime_type}</strong></div>
+                    )}
+                  </div>
+
+                  <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 4 }}>
+                    <button
+                      type="button"
+                      onClick={() => setShowManualCopyModal(true)}
+                      style={{
+                        background: 'var(--brand-navy)',
+                        color: '#FFFFFF',
+                        border: 'none',
+                        padding: '8px 16px',
+                        borderRadius: 6,
+                        fontSize: '0.82rem',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 6,
+                      }}
+                    >
+                      <Edit3 size={14} />
+                      <span>Enter copy manually</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleReject('OCR extraction failed. Clearer upload required.')}
+                      style={{
+                        background: 'transparent',
+                        color: 'var(--status-blocked-text)',
+                        border: '1px solid rgba(153, 27, 27, 0.3)',
+                        padding: '8px 16px',
+                        borderRadius: 6,
+                        fontSize: '0.82rem',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 6,
+                      }}
+                    >
+                      <XCircle size={14} />
+                      <span>Request a clearer upload</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setShowVisualOverrideModal(true)}
+                      style={{
+                        background: 'rgba(245, 158, 11, 0.1)',
+                        color: '#d97706',
+                        border: '1px solid rgba(245, 158, 11, 0.35)',
+                        padding: '8px 16px',
+                        borderRadius: 6,
+                        fontSize: '0.82rem',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 6,
+                      }}
+                    >
+                      <Eye size={14} />
+                      <span>Accept visual-only review (Reason required)</span>
+                    </button>
+                  </div>
+                </div>
+              ) : isVisualOnly ? (
+                <div style={{
+                  background: 'rgba(245, 158, 11, 0.08)',
+                  border: '1px solid rgba(245, 158, 11, 0.35)',
+                  borderRadius: 8,
+                  padding: '16px 20px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 10,
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <Eye size={20} color="#d97706" />
+                    <div>
+                      <div style={{ fontWeight: 800, fontSize: '0.94rem', color: '#b45309' }}>
+                        Visual review only &bull; Text and claim checks are pending
+                      </div>
+                      <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginTop: 2 }}>
+                        Readable copy was not extracted. Visual brand identity checks are ready. Reason required for authorized sign-off.
+                      </div>
+                    </div>
+                  </div>
+                  {selectedItem.decision_limitations && (
+                    <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+                      Limitation note: {selectedItem.decision_limitations}
+                    </div>
+                  )}
+                </div>
+              ) : selectedItem.findings && selectedItem.findings.length > 0 ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                   {selectedItem.findings.map((f, idx) => (
                     <div
@@ -619,7 +1209,7 @@ function ReviewGateContent() {
                 }}>
                   <CheckCircle2 size={18} color="var(--brand-forest)" />
                   <span style={{ fontSize: '0.84rem', color: 'var(--status-approved-text)', fontWeight: 600 }}>
-                    Zero policy citations flagged against active guidelines. Clean bill of health.
+                    Checked — no findings. Zero policy citations flagged against active guidelines. Clean bill of health.
                   </span>
                 </div>
               )}
@@ -683,10 +1273,14 @@ function ReviewGateContent() {
                     </div>
                     <div>
                       <div style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--status-approved-text)' }}>
-                        Content Passport Minted Successfully!
+                        {successResponse.approval_type === 'visual_only'
+                          ? 'Visual-Only Content Passport Issued!'
+                          : 'Content Passport Minted Successfully!'}
                       </div>
                       <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                        Draft transitioned to <strong style={{ color: 'var(--status-approved-text)' }}>APPROVED</strong> status
+                        {successResponse.approval_type === 'visual_only'
+                          ? 'Approved with documented limitation: Visual review only.'
+                          : 'Draft transitioned to APPROVED status.'}
                       </div>
                     </div>
                   </div>
@@ -744,28 +1338,46 @@ function ReviewGateContent() {
                 />
               </div>
 
-              <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
                 <button
                   type="button"
                   className={styles.btnApprove}
                   onClick={handleApprove}
-                  disabled={submitting || selectedItem.status === 'approved'}
+                  disabled={submitting || selectedItem.status === 'approved' || (isOcrBlocked && !isVisualOnly)}
+                  title={isOcrBlocked && !isVisualOnly ? 'Approval disabled: Readable text required' : 'Approve & Issue Content Passport'}
                 >
                   <CheckCircle2 size={16} />
                   <span>
-                    {submitting ? 'Recording Human Approval...' : 'Approve & Issue Content Passport'}
+                    {submitting
+                      ? 'Recording Human Approval...'
+                      : isVisualOnly
+                        ? 'Approve Visual-Only (Reason Required)'
+                        : 'Approve & Issue Content Passport'}
                   </span>
                 </button>
 
                 <button
                   type="button"
                   className={styles.btnReject}
-                  onClick={handleReject}
+                  onClick={() => handleReject()}
                   disabled={submitting}
                 >
                   <XCircle size={16} />
                   <span>Reject &amp; Request Changes</span>
                 </button>
+
+                {isOcrBlocked && !isVisualOnly && (
+                  <span style={{
+                    fontSize: '0.74rem',
+                    fontWeight: 700,
+                    color: '#b91c1c',
+                    background: 'rgba(239, 68, 68, 0.1)',
+                    padding: '4px 8px',
+                    borderRadius: 4
+                  }}>
+                    Approval Disabled &bull; Readable text required
+                  </span>
+                )}
               </div>
 
               <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -777,8 +1389,31 @@ function ReviewGateContent() {
             </div>
           </div>
         ) : (
-          <div className={styles.detailCard} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 400 }}>
-            <span style={{ color: 'var(--text-muted)' }}>No submission selected</span>
+          <div className={styles.detailCard} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 400, gap: 12, padding: 32, textAlign: 'center' }}>
+            <FileText size={36} color="var(--border-subtle)" />
+            <span style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '1rem' }}>No submission selected</span>
+            <span style={{ color: 'var(--text-muted)', fontSize: '0.82rem', maxWidth: 400 }}>
+              Upload or scan your creative in the Workspace and proceed to Review Gate to review and issue Content Passports.
+            </span>
+            <Link
+              href="/workspace"
+              style={{
+                marginTop: 8,
+                padding: '8px 16px',
+                borderRadius: 6,
+                background: 'var(--brand-navy)',
+                color: '#FFFFFF',
+                fontSize: '0.82rem',
+                fontWeight: 700,
+                textDecoration: 'none',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6
+              }}
+            >
+              <span>Go to Workspace</span>
+              <ArrowRight size={14} />
+            </Link>
           </div>
         )}
       </div>
