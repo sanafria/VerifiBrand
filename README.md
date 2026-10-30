@@ -78,9 +78,9 @@ cd frontend && npm test
 
 ## Team
 
-- [Sana Fria](https://github.com/sanafria)
-- [Nimra Tariq](https://github.com/nimrafshaikh-sketch)
-- [Zoya Nadeem](https://github.com/zoyatahasildar)
-- [Zynab Farhan](https://github.com/zynab983)
-- [Mahadevi Sabarad](https://github.com/madhusabarad)
-- [Umme Haany Tandur](https://github.com/ummehaany)
+- [Sana](https://github.com/sanafria)
+- [Nimra](https://github.com/nimrafshaikh-sketch)
+- [Zoya](https://github.com/zoyatahasildar)
+- [Zynab](https://github.com/zynab983)
+- [Madhu](https://github.com/madhusabarad)
+- [Umme Haany](https://github.com/ummehaany)
