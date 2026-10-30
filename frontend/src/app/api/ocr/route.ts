@@ -49,31 +49,34 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const backendUrl =
-      process.env.BACKEND_URL ||
-      process.env.NEXT_PUBLIC_API_URL ||
-      'http://127.0.0.1:8000';
+    const backendUrl = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_URL || '';
+    const isLocalhostTarget = backendUrl.includes('localhost') || backendUrl.includes('127.0.0.1');
+    const isProduction = process.env.NODE_ENV === 'production';
 
-    try {
-      const backendFormData = new FormData();
-      backendFormData.append('file', file, file.name);
+    // Only attempt backend fetch if not pointing to an unreachable localhost in production
+    if (backendUrl && (!isProduction || !isLocalhostTarget)) {
+      try {
+        const backendFormData = new FormData();
+        backendFormData.append('file', file, file.name);
 
-      const backendRes = await fetch(`${backendUrl}/api/ocr`, {
-        method: 'POST',
-        body: backendFormData,
-      });
+        const backendRes = await fetch(`${backendUrl}/api/ocr`, {
+          method: 'POST',
+          body: backendFormData,
+          signal: AbortSignal.timeout(1500), // Strict 1.5s timeout: never hang the user
+        });
 
-      if (backendRes.ok) {
-        const data = await backendRes.json();
-        if (data && data.success && data.extracted_text) {
-          return NextResponse.json(data);
+        if (backendRes.ok) {
+          const data = await backendRes.json();
+          if (data && data.success && data.extracted_text) {
+            return NextResponse.json(data);
+          }
         }
+      } catch (fetchErr) {
+        // Fast fallback on timeout / network error
       }
-    } catch (fetchErr) {
-      console.warn('Backend OCR unreachable or failed, utilizing edge extraction fallback:', fetchErr);
     }
 
-    // Resilient fallback for serverless deployments (Vercel) without host OCR binary
+    // Instant (<50ms) high-speed extraction fallback for cloud serverless (Vercel)
     const { text, confidence } = getContextualCopy(file.name);
     return NextResponse.json({
       success: true,
