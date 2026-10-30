@@ -570,15 +570,107 @@ flowchart LR
     B6 --> DB3
 ```
 
-### Known Integration Gaps & Boundaries
-1. **Frontend Local Adapter vs. Backend CRUD:**
-   - The frontend `policyClient.ts` currently defaults to client-side localStorage (`mockData.ts`).
-   - When configured for backend CRUD (`NEXT_PUBLIC_USE_BACKEND_CRUD=true`), the frontend attempts to parse a raw array, but the backend endpoint returns a wrapped envelope: `{ "items": [...], "total": ... }`.
+```
+
+### Resolved Integration Gaps & Boundaries
+1. **Frontend Client Integration & Bidirectional Schema Mapping (Resolved by Member 2):**
+   - The frontend `policyClient.ts` provides robust bidirectional translation between backend entity shapes (`card_type`, `rule_text`, `status='active'/'inactive'`) and frontend models (`category`, `content`, `status='approved'/'archived'`).
+   - Handles both wrapped API envelopes `{ "items": [...], "total": ... }` and raw arrays.
+   - Includes real-time server error alerts with a prominent retry button and avoids false-success localStorage writes upon backend failures.
 2. **Scan Workspace Ownership Boundary:**
    - The interactive marketer editor and finding highlighter belong to Member 1 (Sana). The `/workspace` route acts as an integration boundary verifying the contract between Member 2 policy cards and Member 4 scan engine.
 3. **Direct Scan vs. Database Scan:**
    - `POST /api/scan`: Stateless, takes policy cards in payload, returns findings (used for client-side policy preview).
    - `POST /api/scans`: Stateful, persists draft and findings in PostgreSQL, prerequisites for review and Content Passport issuance.
+
+---
+
+## 10. Member 2 Technical Specification: Policy Library, Brand Passport, and Authoritative Agent Tools
+
+**Lead Engineer:** Nimra (Member 2)  
+**Modules:** `backend/app/api/policies.py`, `backend/app/schemas/policy.py`, `backend/app/api/agent_tools.py`, `backend/app/services/policy_agent_tools.py`, `frontend/src/lib/api/policyClient.ts`, `frontend/src/app/policies/page.tsx`
+
+### 10.1 Conceptual Separation: Brand Passport vs. Content Passport
+
+A core architectural principle in BrandLedger is the distinct boundary between the brand's identity guidelines and individual creative proof certificates:
+
+| Dimension | Brand Passport (`/brand-passport`) | Content Passport (`/passports`) |
+| :--- | :--- | :--- |
+| **Owner** | Member 2 (Nimra) | Member 3 (Zoya) & Member 2 Verification |
+| **Domain** | Brand Identity, Voice Pillars, Color Palette, Tone, Governance Score | Cryptographic digital audit proof issued for an approved creative submission |
+| **Mutability** | Living brand guidelines updated by brand governance leads | Strictly immutable snapshot created upon reviewer approval |
+| **Integrity Mechanism** | Relational versioning (`policy_card_versions`) | SHA-256 canonical snapshot hash & Merkle inclusion proof |
+| **Consumption** | Human marketers, brand teams, AI generation prompts | Fetch.ai agent publish gates, downstream social publishers, ad networks |
+
+### 10.2 Policy Lifecycle and Immutable Version History
+
+To enforce auditability and eliminate retroactive compliance disputes, policy cards utilize dual-table temporal versioning:
+
+1. **`policy_cards` Table (Current State):** Contains current active or inactive policy cards with stable identifiers:
+   - `id`: Immutable UUID primary key.
+   - `policy_key`: Stable human-readable identifier (e.g. `pol_term_001`, `pol_offer_002`).
+   - `version`: Integer tracking the latest version number.
+   - `status`: `active` or `inactive` (soft-archived without deleting historical snapshots).
+2. **`policy_card_versions` Table (Immutable History):** Whenever `rule_text`, `source_quote`, `approved_value`, `rules`, or `severity` changes:
+   - The version counter is incremented.
+   - An exact, unalterable snapshot is recorded with `(policy_card_id, version)`.
+   - Historical lookups via `GET /api/policies/{policy_id}?version=X` and `GET /api/tools/policies/{policy_id}?version=X` query this table. If a requested version does not exist, the API returns **404 Not Found** and strictly refuses to fall back to the latest version.
+
+### 10.3 Authoritative Agent Tools (Member 2 Implementation)
+
+Member 2 provides five deterministic, machine-readable agent tools accessible via Python imports (`backend.app.services.policy_agent_tools` / `backend.app.services.agent_tools`) and REST endpoints under `/api/tools/`:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           Agent Tools Gateway                               │
+│                         (/api/tools/* + AGENT_API_KEY)                      │
+└──────┬──────────────────────┬──────────────────────┬─────────────────┬──────┘
+       │                      │                      │                 │
+       ▼                      ▼                      ▼                 ▼
+ 1. get_approved_      2. get_policy_         3. get_passport   4. verify_passport  5. explain_finding
+    policies              details                (/passports/      (/passports/        (/findings/
+    (/policies)           (/policies/{id})        {id})             verify)             explain)
+       │                      │                      │                 │                   │
+       ▼                      ▼                      ▼                 ▼                   ▼
+ Active policies only;  UUID / policy_key;     Fetch certificate; Recompute canonical  Verbatim quote match
+ Drafts & archived      ?version=X history;    frozen snapshot;   SHA-256 hash vs      ("No receipt, no
+ strictly excluded      404 if missing         applied policies   stored hash          flag"); remediation
+```
+
+1. **`get_approved_policies(card_type: Optional[str])` (`GET /api/tools/policies`):**
+   - Returns ONLY active/approved policies.
+   - Excludes draft, inactive, and archived cards.
+   - Preserves stable UUIDs, `policy_key`, structured `rules`, and verbatim `source_quote`.
+2. **`get_policy_details(policy_id: str, version: Optional[str])` (`GET /api/tools/policies/{policy_id}`):**
+   - Retrieves full policy details by UUID or `policy_key`.
+   - Supports `?version=X` for immutable historical retrieval from `policy_card_versions`.
+   - Strictly returns 404 if version does not exist.
+3. **`get_passport(passport_id: str)` (`GET /api/tools/passports/{passport_id}`):**
+   - Retrieves Content Passport digital certificate.
+   - Returns `passport_hash`, `status`, `metadata_snapshot`, `applied_policy_versions`, and `hash_verified`.
+4. **`verify_passport(passport_id, passport_hash, metadata_snapshot)` (`POST /api/tools/passports/verify`):**
+   - Computes deterministic SHA-256 hash across canonically sorted snapshot JSON (`sort_keys=True`, compact separators).
+   - Returns machine-readable verdict: `status: "VALID"` (`hash_verified: true`), `status: "TAMPERED"` (`hash_verified: false`), or `status: "NOT_FOUND"`.
+5. **`explain_finding(finding_id, scan_id, finding_index, finding)` (`POST /api/tools/findings/explain`):**
+   - Enforces "No receipt, no flag": Resolves cited policy card and exact version.
+   - Verifies that `source_quote` exists verbatim in the approved policy text.
+   - If verified: sets `evidence_provenance: "VERIFIED"`, `is_verified: true`, and provides actionable remediation guidance.
+   - If unverified or fabricated: sets `evidence_provenance: "UNVERIFIED"`, `is_verified: false`, and marks as `HUMAN_REVIEW_REQUIRED`.
+
+### 10.4 Agent Authentication Security
+
+All `/api/tools/*` endpoints are protected by an authoritative agent authentication dependency (`verify_agent_auth`):
+- Checks for `AGENT_API_KEY` configured in the environment.
+- Accepts credentials via `Authorization: Bearer <token>` or `X-Agent-Key: <token>`.
+- Performs constant-time token verification using `secrets.compare_digest` to prevent timing attacks.
+- Rejects unauthorized or missing credentials with **401 Unauthorized**.
+- Operates in permissive mode during local offline development when `AGENT_API_KEY` is not set.
+
+### 10.5 Dual-Mode Architecture & Offline Resilience
+
+All Member 2 services and endpoints operate in a robust dual-mode architecture:
+- **Live PostgreSQL Mode:** When `db_manager.pool` is connected, all operations execute authoritative SQL transactions against `policy_cards`, `policy_card_versions`, and `passports`.
+- **Resilient Mock Mode:** When PostgreSQL or Docker is offline (e.g. during CI or client tests), the system transparently utilizes an in-memory storage layer seeded with authentic `seed.sql` records, ensuring 100% test suite determinism and offline developer experience without compromising production SQL code paths.
 
 ---
 

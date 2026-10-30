@@ -1,6 +1,6 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert';
-import { policyClient } from '../lib/api/policyClient.ts';
+import { policyClient, mapBackendToFrontendPolicy, mapFrontendToBackendPayload } from '../lib/api/policyClient.ts';
 import { INITIAL_POLICY_CARDS, INITIAL_BRAND_PROFILES } from '../lib/mockData.ts';
 
 describe('Policy Library & Brand Passport Tests', () => {
@@ -193,6 +193,62 @@ describe('Policy Library & Brand Passport Tests', () => {
       assert.ok(Array.isArray(c.rules));
       assert.ok(typeof c.metadata === 'object');
     });
+  });
+
+  test('Bidirectional schema mapping translates backend shapes to frontend models', () => {
+    const backendRaw = {
+      id: 'a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d',
+      policy_key: 'pol_offer_002',
+      title: 'Summer Offer',
+      card_type: 'offer',
+      rule_text: 'Summer promotion valid through 2026-06-30.',
+      approved_value: 'Standard Pricing',
+      source_quote: 'valid through 2026-06-30',
+      severity: 'blocker',
+      status: 'active',
+      version: 2,
+      rules: [{ type: 'offer_validity', quote: 'valid through 2026-06-30' }],
+      metadata: { offer_name: 'Summer Discount' },
+      created_at: '2026-05-01T00:00:00Z',
+      updated_at: '2026-05-15T00:00:00Z',
+    };
+
+    const frontendModel = mapBackendToFrontendPolicy(backendRaw);
+    assert.strictEqual(frontendModel.id, 'pol_offer_002');
+    assert.strictEqual(frontendModel.category, 'offer_validity');
+    assert.strictEqual(frontendModel.status, 'approved');
+    assert.strictEqual(frontendModel.version, '2');
+    assert.strictEqual(frontendModel.content, 'Summer promotion valid through 2026-06-30.');
+
+    // Reverse mapping
+    const backPayload = mapFrontendToBackendPayload(frontendModel);
+    assert.strictEqual(backPayload.card_type, 'offer');
+    assert.strictEqual(backPayload.status, 'active');
+    assert.strictEqual(backPayload.source_quote, 'valid through 2026-06-30');
+    assert.strictEqual(backPayload.policy_key, 'pol_offer_002');
+  });
+
+  test('Status mapping correctly handles inactive and archived policies', () => {
+    const archivedBackend = {
+      id: 'd4e5f6a7-b89c-0d1e-2f3a-4b5c6d7e8f9a',
+      title: 'Legacy Policy',
+      card_type: 'fact',
+      rule_text: 'Points limit',
+      source_quote: 'Points limit',
+      severity: 'warning',
+      status: 'inactive',
+      version: 1,
+      created_at: '2026-01-01T00:00:00Z',
+      updated_at: '2026-01-01T00:00:00Z',
+    };
+
+    const mapped = mapBackendToFrontendPolicy(archivedBackend);
+    assert.strictEqual(mapped.status, 'archived');
+    assert.strictEqual(mapped.category, 'numerical');
+
+    const mappedBack = mapFrontendToBackendPayload({ ...mapped, status: 'archived' });
+    assert.strictEqual(mappedBack.status, 'inactive');
+    assert.strictEqual(mappedBack.card_type, 'fact');
   });
 
 });

@@ -4,7 +4,7 @@ Supports robust extraction from various policy card representations
 produced by Zoya's database model and Mahadevi's extraction pipeline.
 """
 
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from enum import Enum
 from typing import Any, List, Optional
 from uuid import UUID
@@ -99,6 +99,20 @@ class PolicyStatus(str, Enum):
     INACTIVE = "inactive"
 
 
+def normalize_policy_status(status_val: Optional[Any]) -> PolicyStatus:
+    """Map frontend and backend status representations to PolicyStatus."""
+    if isinstance(status_val, PolicyStatus):
+        return status_val
+    if not status_val:
+        return PolicyStatus.ACTIVE
+    s = str(status_val).lower().strip()
+    if s in ("active", "approved"):
+        return PolicyStatus.ACTIVE
+    if s in ("inactive", "archived", "draft"):
+        return PolicyStatus.INACTIVE
+    return PolicyStatus.ACTIVE
+
+
 class SeverityLevel(str, Enum):
     """Finding severity level."""
     BLOCKER = "blocker"
@@ -116,23 +130,31 @@ class PolicyCardBase(BaseModel):
     valid_from: Optional[date] = Field(None, description="Effective start date")
     valid_until: Optional[date] = Field(None, description="Expiration date (critical for offers)")
     severity: SeverityLevel = Field(default=SeverityLevel.BLOCKER, description="Default severity if violated")
+    status: Optional[str] = Field(default="active", description="Policy status: active or inactive")
+    policy_key: Optional[str] = Field(None, description="Stable human-readable policy key (e.g. pol_term_001)")
+    rules: list[dict[str, Any]] = Field(default_factory=list, description="Structured rule definitions")
+    metadata: dict[str, Any] = Field(default_factory=dict, description="Arbitrary policy metadata")
 
 
 class PolicyCardCreate(PolicyCardBase):
     """Payload to create a new policy card."""
-    pass
+    id: Optional[UUID] = Field(None, description="Optional pre-assigned UUID identifier")
 
 
 class PolicyCardUpdate(BaseModel):
     """Payload to update an existing policy card with version bump."""
     title: Optional[str] = Field(None, min_length=2, max_length=255)
+    card_type: Optional[CardType] = None
     rule_text: Optional[str] = Field(None, min_length=3)
     approved_value: Optional[str] = None
     source_quote: Optional[str] = Field(None, min_length=3)
     valid_from: Optional[date] = None
     valid_until: Optional[date] = None
     severity: Optional[SeverityLevel] = None
-    status: Optional[PolicyStatus] = None
+    status: Optional[str] = None
+    policy_key: Optional[str] = None
+    rules: Optional[list[dict[str, Any]]] = None
+    metadata: Optional[dict[str, Any]] = None
 
 
 class PolicyCardResponse(PolicyCardBase):
@@ -140,8 +162,8 @@ class PolicyCardResponse(PolicyCardBase):
     id: UUID = Field(..., description="Unique policy card ID")
     version: int = Field(default=1, description="Policy version number (immutable per version)")
     status: PolicyStatus = Field(default=PolicyStatus.ACTIVE, description="Active or inactive")
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -150,3 +172,4 @@ class PolicyListResponse(BaseModel):
     """Envelope for listing policies."""
     items: List[PolicyCardResponse] = Field(default_factory=list)
     total: int = Field(default=0)
+

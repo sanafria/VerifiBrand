@@ -29,6 +29,9 @@ class Settings(BaseSettings):
     # Optional AI Key (Zynab's engine integration)
     OPENAI_API_KEY: str = ""
 
+    # Agent Authentication Key (Member 2 agent tools security)
+    AGENT_API_KEY: str = ""
+
     # Publication Gate & CMS Webhook HMAC-SHA256 Secret (Member 6)
     CMS_WEBHOOK_SECRET: str = "brandledger_cms_default_secret_dev"
 
